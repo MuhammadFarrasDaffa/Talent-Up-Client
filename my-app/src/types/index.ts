@@ -167,3 +167,31 @@ export interface ProfileFormData {
   skills: Skill[];
   certifications: Certification[];
 }
+
+export interface Job {
+  _id: string;
+  title: string;
+  company: string;
+  companyLogo?: string;
+  location: string;
+  type: string; // e.g., "Full Time", "Remote"
+  experienceLevel: string; // e.g., "Junior", "Mid"
+  minEducation?: string;
+  salary?:
+    | string
+    | {
+        min: number;
+        max: number;
+        currency: string;
+      };
+  skills: string[];
+  description?: string;
+  createdAt: string;
+}
+
+export interface User {
+  _id: string;
+  name: string;
+  email: string;
+  role: string;
+}
