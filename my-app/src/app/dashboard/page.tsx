@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { jobService } from "@/services/jobService";
 // import GridBackground from "@/components/ui/GridBackground";
 import PixelBlast from "@/components/ui/PixelBlast";
+import { useRouter } from "next/navigation";
 
 // Tipe data Job (sesuaikan dengan backend kamu)
 interface Job {
@@ -34,9 +35,15 @@ interface Job {
 export default function DashboardPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  const router = useRouter();
 
   // Fetch Data saat halaman dimuat
   useEffect(() => {
+    const token = localStorage.getItem("token");
+    setIsLoggedIn(!!token); // true jika token ada
+
     const fetchJobs = async () => {
       const result = await jobService.getAllJobs();
       // Asumsikan struktur response backend: { success: true, data: [...] }
@@ -190,72 +197,45 @@ export default function DashboardPage() {
 
         {/* JOB GRID */}
         {loading ? (
-          // Skeleton Loading (Simple Text)
           <div className="text-center py-20 text-gray-400">
             Sedang memuat lowongan...
           </div>
         ) : jobs.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {jobs.map((job) => (
-              <Card
-                key={job._id}
-                className="group hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-gray-200 overflow-hidden"
-              >
+              <Card key={job._id} className="...">
                 <CardContent className="p-6">
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="h-12 w-12 bg-gray-100 rounded-lg flex items-center justify-center text-xl font-bold text-gray-600">
-                      {/* Logo Placeholder (Ambil inisial perusahaan) */}
-                      {job.company.substring(0, 2).toUpperCase()}
-                    </div>
-                    <Badge
-                      variant="outline"
-                      className="text-gray-500 border-gray-200"
-                    >
-                      {job.type || "Full Time"}
-                    </Badge>
-                  </div>
-
-                  <h3 className="text-lg font-bold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors line-clamp-1">
-                    {job.title}
-                  </h3>
-                  <p className="text-sm text-gray-500 mb-4 flex items-center gap-1">
-                    {job.company} • {job.location}
-                  </p>
-
-                  <div className="flex flex-wrap gap-2 mb-6">
-                    {job.skills.slice(0, 3).map((skill, index) => (
-                      <Badge
-                        key={index}
-                        variant="secondary"
-                        className="bg-blue-50 text-blue-700 hover:bg-blue-100"
-                      >
-                        {skill}
-                      </Badge>
-                    ))}
-                    {job.skills.length > 3 && (
-                      <Badge
-                        variant="secondary"
-                        className="bg-gray-100 text-gray-500"
-                      >
-                        +{job.skills.length - 3}
-                      </Badge>
-                    )}
-                  </div>
+                  {/* ... (Konten Job Card sama) ... */}
 
                   <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                     <div className="flex items-center gap-1 text-sm font-semibold text-gray-900">
                       <DollarSign className="h-4 w-4 text-gray-400" />
-                      {/* Format Gaji (Mockup) */}
                       IDR 8jt - 15jt
                     </div>
-                    <Link href={`/jobs/${job._id}`}>
-                      <Button
-                        size="sm"
-                        className="bg-black hover:bg-gray-800 text-white rounded-lg"
-                      >
-                        Apply
-                      </Button>
-                    </Link>
+
+                    {/* LOGIC TOMBOL APPLY */}
+                    {isLoggedIn ? (
+                      // JIKA LOGIN: Tombol Apply Aktif
+                      <Link href={`/jobs/${job._id}`}>
+                        <Button
+                          size="sm"
+                          className="bg-black hover:bg-gray-800 text-white rounded-lg"
+                        >
+                          Apply
+                        </Button>
+                      </Link>
+                    ) : (
+                      // JIKA BELUM LOGIN: Tombol Login to Apply
+                      <Link href="/login">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                        >
+                          Login to Apply
+                        </Button>
+                      </Link>
+                    )}
                   </div>
                 </CardContent>
               </Card>
