@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useEffect, useState } from "react";
@@ -234,7 +235,15 @@ export default function ProfilePage() {
                 </h2>
               </div>
 
-              <div className="flex justify-end mb-4">
+              <div className="flex flex-wrap gap-3 justify-end mb-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => router.push("/interview/history")}
+                  className="bg-white/80 backdrop-blur border border-gray-200 shadow-sm hover:bg-gray-50"
+                >
+                  Interview History
+                </Button>
                 <Button
                   type="button"
                   variant="outline"

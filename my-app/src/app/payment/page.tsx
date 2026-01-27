@@ -18,15 +18,14 @@ import { useRouter } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 
 interface TokenPackage {
+  _id: string;
+  name: string;
+  type: string;
   tokens: number;
   price: number;
-  name: string;
-}
-
-interface Packages {
-  basic: TokenPackage;
-  pro: TokenPackage;
-  premium: TokenPackage;
+  description?: string;
+  features?: string[];
+  popular?: boolean;
 }
 
 declare global {
@@ -36,7 +35,7 @@ declare global {
 }
 
 export default function PaymentPage() {
-  const [packages, setPackages] = useState<Packages | null>(null);
+  const [packages, setPackages] = useState<TokenPackage[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingPayment, setProcessingPayment] = useState(false);
   const [tokenBalance, setTokenBalance] = useState<number>(0);
@@ -73,8 +72,18 @@ export default function PaymentPage() {
 
   const loadPackages = async () => {
     try {
-      const response = await paymentService.getPackages();
-      setPackages(response.data);
+      const response = await fetch("http://localhost:3000/packages", {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch packages");
+      }
+
+      const data = await response.json();
+      setPackages(data.packages || []);
     } catch (error: any) {
       toast.error(error.message || "Failed to load packages");
     } finally {
@@ -168,68 +177,74 @@ export default function PaymentPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {packages &&
-          Object.entries(packages).map(([key, pkg]) => (
-            <Card
-              key={key}
-              className={`${
-                key === "pro" ? "border-primary shadow-lg" : ""
-              } hover:shadow-xl transition-shadow`}
-            >
-              <CardHeader>
-                <CardTitle className="flex justify-between items-center">
-                  {pkg.name}
-                  {key === "pro" && (
-                    <Badge variant="default">Most Popular</Badge>
-                  )}
-                </CardTitle>
-                <CardDescription>
-                  Get {pkg.tokens} tokens for your account
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-6">
-                  <div className="text-4xl font-bold mb-2">
-                    {formatPrice(pkg.price)}
-                  </div>
-                  <div className="text-muted-foreground">
-                    {pkg.tokens} Tokens
-                  </div>
-                  <div className="text-sm text-muted-foreground mt-2">
-                    {formatPrice(pkg.price / pkg.tokens)} / token
-                  </div>
+        {packages.map((pkg) => (
+          <Card
+            key={pkg._id}
+            className={`${
+              pkg.popular ? "border-primary shadow-lg" : ""
+            } hover:shadow-xl transition-shadow`}
+          >
+            <CardHeader>
+              <CardTitle className="flex justify-between items-center">
+                {pkg.name}
+                {pkg.popular && <Badge variant="default">Most Popular</Badge>}
+              </CardTitle>
+              <CardDescription>
+                {pkg.description || `Get ${pkg.tokens} tokens for your account`}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-6">
+                <div className="text-4xl font-bold mb-2">
+                  {formatPrice(pkg.price)}
                 </div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="text-green-500">✓</span>
-                    <span>Valid for 1 year</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-green-500">✓</span>
-                    <span>AI Interview Practice</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-green-500">✓</span>
-                    <span>CV Analysis</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-green-500">✓</span>
-                    <span>Job Recommendations</span>
-                  </div>
+                <div className="text-muted-foreground">{pkg.tokens} Tokens</div>
+                <div className="text-sm text-muted-foreground mt-2">
+                  {formatPrice(pkg.price / pkg.tokens)} / token
                 </div>
-              </CardContent>
-              <CardFooter>
-                <Button
-                  onClick={() => handlePayment(key)}
-                  disabled={processingPayment}
-                  className="w-full"
-                  variant={key === "pro" ? "default" : "outline"}
-                >
-                  {processingPayment ? "Processing..." : "Buy Now"}
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
+              </div>
+              <div className="space-y-2 text-sm">
+                {pkg.features && pkg.features.length > 0 ? (
+                  pkg.features.map((feature, idx) => (
+                    <div key={idx} className="flex items-start gap-2">
+                      <span className="text-green-500 mt-0.5">✓</span>
+                      <span>{feature}</span>
+                    </div>
+                  ))
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <span className="text-green-500">✓</span>
+                      <span>Valid for 1 year</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-green-500">✓</span>
+                      <span>AI Interview Practice</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-green-500">✓</span>
+                      <span>CV Analysis</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-green-500">✓</span>
+                      <span>Job Recommendations</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button
+                onClick={() => handlePayment(pkg.type)}
+                disabled={processingPayment}
+                className="w-full"
+                variant={pkg.popular ? "default" : "outline"}
+              >
+                {processingPayment ? "Processing..." : "Buy Now"}
+              </Button>
+            </CardFooter>
+          </Card>
+        ))}
       </div>
 
       <div className="mt-12">

@@ -6,19 +6,28 @@ import { useRouter } from "next/navigation";
 import { Category, InterviewConfig } from "@/types";
 import Navbar from "@/components/layout/Navbar";
 
+interface Tier {
+  _id: string;
+  title: string;
+  price: number;
+  benefits: string[];
+  quota: number;
+  description: string;
+}
+
 export default function Interview() {
   const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
+  const [tiers, setTiers] = useState<Tier[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
+  const [loadingTiers, setLoadingTiers] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(
     null,
   );
   const [selectedLevel, setSelectedLevel] = useState<
     "junior" | "middle" | "senior" | null
   >(null);
-  const [selectedTier, setSelectedTier] = useState<"free" | "premium" | null>(
-    null,
-  );
+  const [selectedTier, setSelectedTier] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [availableCount, setAvailableCount] = useState<number | null>(null);
   const [loadingCount, setLoadingCount] = useState(false);
@@ -54,6 +63,33 @@ export default function Interview() {
     fetchCategories();
   }, []);
 
+  useEffect(() => {
+    async function fetchTiers() {
+      try {
+        setLoadingTiers(true);
+        const response = await fetch("http://localhost:3000/tiers", {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch tiers");
+        }
+
+        const data = await response.json();
+        setTiers(data.tiers || []);
+      } catch (error) {
+        console.error("Error fetching tiers:", error);
+        alert("Failed to load tiers. Please try again later.");
+      } finally {
+        setLoadingTiers(false);
+      }
+    }
+
+    fetchTiers();
+  }, []);
+
   const levels = [
     {
       value: "junior" as const,
@@ -75,31 +111,6 @@ export default function Interview() {
     },
   ];
 
-  const tiers = [
-    {
-      value: "free" as const,
-      title: "Free",
-      questions: 5,
-      price: "Free",
-      features: ["5 Questions", "Basic Feedback", "Text Transcript"],
-      token: 1,
-    },
-    {
-      value: "premium" as const,
-      title: "Premium",
-      questions: 20,
-      price: "$9.99",
-      features: [
-        "20 Questions",
-        "Detailed Feedback",
-        "AI Analysis",
-        "Performance Report",
-      ],
-      badge: "Popular",
-      token: 2,
-    },
-  ];
-
   const handleShowConfirmation = () => {
     if (!selectedCategory || !selectedLevel || !selectedTier) {
       alert("Please select category, level, and tier");
@@ -114,12 +125,20 @@ export default function Interview() {
       return;
     }
 
+    const selectedTierData = tiers.find((t) => t._id === selectedTier);
+    if (!selectedTierData) {
+      alert("Invalid tier selected");
+      return;
+    }
+
     const config: InterviewConfig = {
       categoryId: selectedCategory._id,
       categoryTitle: selectedCategory.title,
       level: selectedLevel,
-      tier: selectedTier,
-      tokenUsage: tiers.find((t) => t.value === selectedTier)?.token || 1,
+      tier: selectedTierData.title.toLowerCase().includes("free")
+        ? "free"
+        : "premium",
+      tokenUsage: selectedTierData.price,
     };
 
     setLoading(true);
@@ -234,13 +253,13 @@ export default function Interview() {
 
   // Reset tier if currently selected tier exceeds available questions
   useEffect(() => {
-    if (selectedTier && availableCount !== null) {
-      const currentTier = tiers.find((t) => t.value === selectedTier);
-      if (currentTier && currentTier.questions > availableCount) {
+    if (selectedTier && availableCount !== null && tiers.length > 0) {
+      const currentTier = tiers.find((t) => t._id === selectedTier);
+      if (currentTier && currentTier.quota > availableCount) {
         setSelectedTier(null);
       }
     }
-  }, [availableCount, selectedTier]);
+  }, [availableCount, selectedTier, tiers]);
 
   return (
     <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 py-12 px-6">
@@ -379,76 +398,86 @@ export default function Interview() {
             <h2 className="text-2xl font-bold text-gray-800">Select Tier</h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
-            {tiers.map((tier) => (
-              <button
-                key={tier.value}
-                onClick={() => setSelectedTier(tier.value)}
-                disabled={
-                  !selectedLevel ||
-                  (availableCount !== null && tier.questions > availableCount)
-                }
-                className={`p-8 rounded-xl border-2 transition-all relative ${
-                  selectedTier === tier.value
-                    ? "border-blue-600 bg-blue-50 shadow-lg"
-                    : "border-gray-200 bg-white hover:border-blue-300 hover:shadow-md"
-                } ${
-                  !selectedLevel ||
-                  (availableCount !== null && tier.questions > availableCount)
-                    ? "opacity-50 cursor-not-allowed"
-                    : ""
-                }`}
-              >
-                {tier.badge && (
-                  <div className="absolute -top-3 right-6 bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-bold">
-                    {tier.badge}
-                  </div>
-                )}
-
-                <div className="text-center mb-6">
-                  <h3 className="text-2xl font-bold text-gray-800 mb-2">
-                    {tier.title}
-                  </h3>
-                  <div className="text-3xl font-bold text-blue-600 mb-1">
-                    {tier.price}
-                  </div>
-                  <p className="text-sm text-gray-600">
-                    {tier.questions} Questions per session
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    {tier.token} Tokens per session
-                  </p>
-                </div>
-
-                <ul className="space-y-3 mb-6">
-                  {tier.features.map((feature, index) => (
-                    <li
-                      key={index}
-                      className="flex items-center gap-2 text-gray-700"
-                    >
-                      <span className="text-green-600">✓</span>
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                {selectedLevel &&
-                  availableCount !== null &&
-                  tier.questions > availableCount && (
-                    <div className="mt-2 text-xs font-medium text-gray-500">
-                      Not enough questions available ({availableCount})
+          {loadingTiers ? (
+            <div className="flex items-center justify-center py-12">
+              <span className="loading loading-spinner loading-lg"></span>
+              <span className="ml-3 text-gray-600">Loading tiers...</span>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {tiers.map((tier, index) => (
+                <button
+                  key={tier._id}
+                  onClick={() => setSelectedTier(tier._id)}
+                  disabled={
+                    !selectedLevel ||
+                    (availableCount !== null && tier.quota > availableCount)
+                  }
+                  className={`p-8 rounded-xl border-2 transition-all relative ${
+                    selectedTier === tier._id
+                      ? "border-blue-600 bg-blue-50 shadow-lg"
+                      : "border-gray-200 bg-white hover:border-blue-300 hover:shadow-md"
+                  } ${
+                    !selectedLevel ||
+                    (availableCount !== null && tier.quota > availableCount)
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
+                  }`}
+                >
+                  {index === 1 && (
+                    <div className="absolute -top-3 right-6 bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-bold">
+                      Popular
                     </div>
                   )}
 
-                {selectedTier === tier.value && (
-                  <div className="flex items-center justify-center gap-2 text-blue-600 font-medium">
-                    <span>✓</span>
-                    <span>Selected</span>
+                  <div className="text-center mb-6">
+                    <h3 className="text-2xl font-bold text-gray-800 mb-2">
+                      {tier.title}
+                    </h3>
+                    <div className="text-3xl font-bold text-blue-600 mb-1">
+                      {tier.price}{" "}
+                      {tier.price === 0
+                        ? ""
+                        : "Token" + (tier.price > 1 ? "s" : "")}
+                    </div>
+                    <p className="text-sm text-gray-600 mb-2">
+                      {tier.quota} Questions per session
+                    </p>
+                    <p className="text-xs text-gray-500 italic">
+                      {tier.description}
+                    </p>
                   </div>
-                )}
-              </button>
-            ))}
-          </div>
+
+                  <ul className="space-y-2 mb-6 text-left">
+                    {tier.benefits.map((benefit, idx) => (
+                      <li
+                        key={idx}
+                        className="flex items-start gap-2 text-sm text-gray-700"
+                      >
+                        <span className="text-green-600 mt-0.5">✓</span>
+                        <span>{benefit}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  {selectedLevel &&
+                    availableCount !== null &&
+                    tier.quota > availableCount && (
+                      <div className="mt-2 text-xs font-medium text-red-500">
+                        Not enough questions available ({availableCount})
+                      </div>
+                    )}
+
+                  {selectedTier === tier._id && (
+                    <div className="flex items-center justify-center gap-2 text-blue-600 font-medium">
+                      <span>✓</span>
+                      <span>Selected</span>
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Summary & Start Button */}
@@ -475,10 +504,9 @@ export default function Interview() {
 
               <div className="bg-gray-50 rounded-lg p-4">
                 <p className="text-sm text-gray-600 mb-1">Tier</p>
-                <p className="font-semibold text-gray-800 capitalize">
-                  {selectedTier} (
-                  {tiers.find((t) => t.value === selectedTier)?.questions}{" "}
-                  Questions)
+                <p className="font-semibold text-gray-800">
+                  {tiers.find((t) => t._id === selectedTier)?.title} (
+                  {tiers.find((t) => t._id === selectedTier)?.quota} Questions)
                 </p>
               </div>
             </div>
@@ -560,7 +588,7 @@ export default function Interview() {
                     <span>
                       <strong>Estimated Time:</strong> The interview will take
                       approximately{" "}
-                      {tiers.find((t) => t.value === selectedTier)?.questions ||
+                      {tiers.find((t) => t._id === selectedTier)?.quota ||
                         0}{" "}
                       * 2-3 minutes. Please allocate enough time.
                     </span>
