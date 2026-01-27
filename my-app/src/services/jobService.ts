@@ -29,4 +29,25 @@ export const jobService = {
       return { data: [], total: 0, hasMore: false };
     }
   },
+
+  getJobById: async (id: string) => {
+    try {
+      const res = await fetch(`${API_URL}/jobs/${id}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store", // Selalu ambil data fresh
+      });
+
+      if (!res.ok) {
+        // Jika 404 atau 500, throw error biar ditangkap catch
+        throw new Error("Gagal mengambil detail lowongan");
+      }
+
+      const json = await res.json();
+      return json.data; // Mengembalikan object job tunggal
+    } catch (error) {
+      console.error(error);
+      return null; // Return null jika error agar UI bisa handle (tampilkan not found)
+    }
+  },
 };

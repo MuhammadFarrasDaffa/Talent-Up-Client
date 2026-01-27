@@ -123,3 +123,30 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* --- CUSTOM JOB DESCRIPTION STYLING --- */
+.job-description-content strong,
+.job-description-content b {
+  display: block; /* Paksa jadi blok baru (seperti enter) */
+  margin-top: 1.5rem; /* Jarak atas */
+  margin-bottom: 0.5rem; /* Jarak bawah */
+  font-size: 1.05em; /* Sedikit lebih besar */
+  color: #111827; /* Warna gelap (gray-900) */
+  font-weight: 700;
+}
+
+/* Pastikan list punya bullet points */
+.job-description-content ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.job-description-content li {
+  margin-bottom: 0.25rem;
+}
+
+/* Hapus margin top untuk strong pertama agar tidak bolong di atas */
+.job-description-content > *:first-child strong {
+  margin-top: 0;
+}
