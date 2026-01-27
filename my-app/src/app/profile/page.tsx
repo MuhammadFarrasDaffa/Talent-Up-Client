@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useEffect, useState } from "react";
@@ -19,15 +18,23 @@ import {
   Sparkles,
   Plus,
   Trash2,
-  BookUser,
+  Save,
+  Loader2,
+  ChevronLeft,
+  LayoutDashboard,
+  Bookmark,
+  History,
+  Settings,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
-import type { ProfileFormData, Experience, Education } from "@/types/index";
-import PixelBlast from "@/components/ui/PixelBlast";
+import type { ProfileFormData } from "@/types/index";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 
-export default function ProfilePage() {
+// --- SUB-COMPONENT: EDIT PROFILE FORM (Kode lama kamu dipindah kesini) ---
+const ProfileEditSection = () => {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [message, setMessage] = useState("");
@@ -39,7 +46,7 @@ export default function ProfilePage() {
     formState: { errors },
     setValue,
     watch,
-    reset, // <-- Import reset
+    reset,
   } = useForm<ProfileFormData>({
     defaultValues: {
       experience: [],
@@ -53,37 +60,22 @@ export default function ProfilePage() {
     fields: experienceFields,
     append: appendExperience,
     remove: removeExperience,
-  } = useFieldArray({
-    control,
-    name: "experience",
-  });
-
+  } = useFieldArray({ control, name: "experience" });
   const {
     fields: educationFields,
     append: appendEducation,
     remove: removeEducation,
-  } = useFieldArray({
-    control,
-    name: "education",
-  });
-
+  } = useFieldArray({ control, name: "education" });
   const {
     fields: skillFields,
     append: appendSkill,
     remove: removeSkill,
-  } = useFieldArray({
-    control,
-    name: "skills",
-  });
-
+  } = useFieldArray({ control, name: "skills" });
   const {
     fields: certificationFields,
     append: appendCertification,
     remove: removeCertification,
-  } = useFieldArray({
-    control,
-    name: "certifications",
-  });
+  } = useFieldArray({ control, name: "certifications" });
 
   // Helper function to convert date to YYYY-MM format for month input
   const formatDateToMonth = (
@@ -125,18 +117,9 @@ export default function ProfilePage() {
           reset(formattedProfile as ProfileFormData);
         }
       } catch (error) {
-        // If profile doesn't exist (404), that's okay. The form will be empty.
-        // For other errors, show a message.
-        const err = error as { status?: number; message?: string };
-        if (err.status !== 404) {
-          console.error("Error loading profile:", error);
-          setMessage("Gagal memuat profil. Silakan coba lagi nanti.");
-        }
-      } finally {
-        setIsLoading(false);
+        console.error(error);
       }
     };
-
     loadProfile();
   }, [reset]);
 
@@ -144,16 +127,10 @@ export default function ProfilePage() {
     try {
       setIsSubmitting(true);
       setMessage("");
-
       await profileService.createOrUpdateProfile(data);
-
       setMessage("Profil berhasil disimpan!");
-      setTimeout(() => {
-        router.push("/dashboard");
-      }, 1500);
-    } catch (error) {
-      const err = error as Error;
-      setMessage(err.message || "Gagal menyimpan profil. Silakan coba lagi.");
+    } catch (error: any) {
+      setMessage(error.message || "Gagal menyimpan profil.");
     } finally {
       setIsSubmitting(false);
     }
@@ -162,15 +139,11 @@ export default function ProfilePage() {
   const handleGenerateAISummary = async () => {
     try {
       setIsGeneratingAI(true);
-      setMessage("");
       const formData = watch();
-
-      // Ensure skills are in the correct format if they exist
       const skills =
         formData.skills?.map((skill: { name: string }) => ({
           name: skill.name,
         })) || [];
-
       const { aiSummary } = await aiService.enhanceSummary({
         fullName: formData.fullName,
         summary: formData.summary,
@@ -178,643 +151,542 @@ export default function ProfilePage() {
         experience: formData.experience,
         education: formData.education,
       });
-
       setValue("aiSummary", aiSummary);
       setMessage("AI Summary berhasil digenerate!");
     } catch (error) {
-      const err = error as Error;
-      setMessage(err.message || "Gagal generate AI summary.");
+      setMessage("Gagal generate AI summary.");
     } finally {
       setIsGeneratingAI(false);
     }
   };
 
-  if (isLoading) {
-    return (
-      <>
-        <div className="min-h-screen flex items-center justify-center bg-gray-50/50">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </>
-    );
-  }
-
   return (
-    <>
-      <Navbar />
-      <div className="min-h-screen bg-gray-50/50">
-        {/* Background Animation */}
-        <div className="absolute inset-0 z-0 h-[500px] [mask-image:linear-gradient(to_bottom,black_40%,transparent_100%)]">
-          <PixelBlast
-            variant="square"
-            pixelSize={4}
-            color="#a8a29e" // Stone color
-            patternScale={2}
-            patternDensity={1}
-            pixelSizeJitter={0}
-            enableRipples
-            rippleSpeed={0.4}
-            rippleThickness={0.12}
-            rippleIntensityScale={1.5}
-            liquid={false}
-            speed={0.5}
-            edgeFade={0.25}
-            transparent={true}
-          />
-        </div>
-
-        <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          <div className="text-center mb-12">
-            <Badge
-              variant="secondary"
-              className="mb-4 px-4 py-1 text-sm bg-white/80 backdrop-blur border border-gray-200 text-blue-600 shadow-sm"
-            >
-              <BookUser className="h-4 w-4 mr-2" />
-              CV & Profile Builder
-            </Badge>
-            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 tracking-tight">
-              Lengkapi Profil Profesional Anda
-            </h1>
-            <p className="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">
-              Data yang Anda masukkan akan digunakan untuk membuat CV, melamar
-              pekerjaan, dan mendapatkan rekomendasi berbasis AI.
-            </p>
-          </div>
-
-          {message && (
-            <div
-              className={`mb-6 px-4 py-3 rounded-xl ${
-                message.includes("berhasil")
-                  ? "bg-green-50/80 border border-green-200 text-green-800 backdrop-blur-sm"
-                  : "bg-red-50/80 border border-red-200 text-red-800 backdrop-blur-sm"
-              }`}
-            >
-              {message}
-            </div>
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {message && (
+        <div
+          className={`px-4 py-3 rounded-xl flex items-center gap-2 text-sm font-medium ${message.includes("berhasil") ? "bg-emerald-50 border border-emerald-200 text-emerald-800" : "bg-red-50 border border-red-200 text-red-800"}`}
+        >
+          {message.includes("berhasil") ? (
+            <CheckCircle2 className="w-4 h-4" />
+          ) : (
+            <AlertCircle className="w-4 h-4" />
           )}
+          {message}
+        </div>
+      )}
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-            {/* Basic Information */}
-            <Card className="border-none shadow-lg shadow-gray-200/50 bg-white/80 backdrop-blur p-6">
-              <div className="flex items-center gap-4 mb-6">
-                <div className="h-11 w-11 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center">
-                  <User className="h-5 w-5" />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+        {/* 1. INFORMASI DASAR */}
+        <Card className="border border-gray-200 shadow-sm bg-white rounded-2xl overflow-hidden">
+          <div className="p-6 md:p-8 space-y-6">
+            <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
+              <div className="h-10 w-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
+                <User className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">
                   Informasi Dasar
                 </h2>
+                <p className="text-xs text-gray-500">
+                  Data pribadi dan kontak.
+                </p>
               </div>
-
-              <div className="flex flex-wrap gap-3 justify-end mb-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => router.push("/interview/history")}
-                  className="bg-white/80 backdrop-blur border border-gray-200 shadow-sm hover:bg-gray-50"
-                >
-                  Interview History
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => router.push("/payment/history")}
-                  className="bg-white/80 backdrop-blur border border-gray-200 shadow-sm hover:bg-gray-50"
-                >
-                  Payment History
-                </Button>
-              </div>
-
-              <div className="space-y-4">
+            </div>
+            <div className="grid grid-cols-1 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <Input
                   label="Nama Lengkap"
-                  placeholder="John Doe"
+                  placeholder="Budi Santoso"
                   error={errors.fullName?.message}
-                  {...register("fullName", {
-                    required: "Nama lengkap wajib diisi",
-                  })}
+                  {...register("fullName", { required: "Wajib diisi" })}
+                  className="bg-gray-50"
                 />
-
                 <Input
-                  label="Title / Job Title"
-                  placeholder="e.g., Full Stack Developer"
-                  error={errors.title?.message}
+                  label="Title / Posisi"
+                  placeholder="Full Stack Developer"
                   {...register("title")}
+                  className="bg-gray-50"
                 />
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input
-                    label="Email"
-                    type="email"
-                    placeholder="john@example.com"
-                    error={errors.email?.message}
-                    {...register("email", {
-                      required: "Email wajib diisi",
-                    })}
-                  />
-
-                  <Input
-                    label="No. Telepon"
-                    placeholder="+62 812 3456 7890"
-                    error={errors.phone?.message}
-                    {...register("phone")}
-                  />
-                </div>
-
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <Input
-                  label="Lokasi"
-                  placeholder="Jakarta, Indonesia"
-                  error={errors.location?.message}
-                  {...register("location")}
+                  label="Email"
+                  type="email"
+                  {...register("email", { required: "Wajib diisi" })}
+                  className="bg-gray-50"
                 />
-
-                <div className="space-y-3 pt-4 border-t">
-                  <h3 className="text-sm font-semibold text-gray-700">
-                    Social Media (Opsional)
-                  </h3>
-                  <Input
-                    label="LinkedIn"
-                    type="url"
-                    placeholder="https://linkedin.com/in/username"
-                    error={errors.linkedIn?.message}
-                    {...register("linkedIn")}
-                  />
-                  <Input
-                    label="Github"
-                    type="url"
-                    placeholder="https://github.com/username"
-                    error={errors.github?.message}
-                    {...register("github")}
-                  />
-                  <Input
-                    label="Portfolio"
-                    type="url"
-                    placeholder="https://yourportfolio.com"
-                    error={errors.portfolio?.message}
-                    {...register("portfolio")}
-                  />
-                </div>
+                <Input
+                  label="No. Telepon"
+                  {...register("phone")}
+                  className="bg-gray-50"
+                />
               </div>
-            </Card>
-
-            {/* About Me */}
-            <Card className="border-none shadow-lg shadow-gray-200/50 bg-white/80 backdrop-blur p-6">
-              <div className="flex items-center gap-4 mb-6">
-                <div className="h-11 w-11 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center">
-                  <User className="h-5 w-5" />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900">About Me</h2>
-              </div>
-
-              <Textarea
-                label="Ceritakan tentang diri Anda"
-                placeholder="Saya adalah seorang profesional dengan pengalaman..."
-                rows={4}
-                error={errors.summary?.message}
-                {...register("summary")}
+              <Input
+                label="Lokasi"
+                placeholder="Jakarta"
+                {...register("location")}
+                className="bg-gray-50"
               />
-            </Card>
-
-            {/* Experience */}
-            <Card className="border-none shadow-lg shadow-gray-200/50 bg-white/80 backdrop-blur p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4">
-                  <div className="h-11 w-11 bg-green-100 text-green-600 rounded-xl flex items-center justify-center">
-                    <Briefcase className="h-5 w-5" />
-                  </div>
-                  <h2 className="text-2xl font-bold text-gray-900">
-                    Pengalaman Kerja
-                  </h2>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    appendExperience({
-                      company: "",
-                      position: "",
-                      startDate: "",
-                      endDate: "",
-                      isCurrent: false,
-                      description: [""],
-                    })
-                  }
-                >
-                  <Plus className="h-4 w-4" />
-                  Tambah
-                </Button>
-              </div>
-
-              <div className="space-y-6">
-                {experienceFields.map((field: any, index: number) => (
-                  <div
-                    key={field.id}
-                    className="p-4 border border-gray-200/80 rounded-xl bg-white/50 space-y-4"
-                  >
-                    <div className="flex justify-between items-start">
-                      <h3 className="font-semibold text-gray-900">
-                        Pengalaman #{index + 1}
-                      </h3>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() => removeExperience(index)}
-                      >
-                        <Trash2 className="h-4 w-4 text-red-600" />
-                      </Button>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Input
-                        label="Perusahaan"
-                        placeholder="PT Contoh"
-                        {...register(`experience.${index}.company` as const)}
-                      />
-                      <Input
-                        label="Posisi"
-                        placeholder="Software Engineer"
-                        {...register(`experience.${index}.position` as const)}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Input
-                        label="Tanggal Mulai"
-                        type="month"
-                        {...register(`experience.${index}.startDate` as const)}
-                      />
-                      <Input
-                        label="Tanggal Selesai"
-                        type="month"
-                        placeholder="Kosongkan jika masih bekerja"
-                        {...register(`experience.${index}.endDate` as const)}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Deskripsi Pekerjaan (poin per poin)
-                      </label>
-                      <Controller
-                        name={`experience.${index}.description`}
-                        control={control}
-                        render={({ field }) => (
-                          <div className="space-y-2">
-                            {(field.value || [""]).map(
-                              (desc: string, descIndex: number) => (
-                                <div
-                                  key={descIndex}
-                                  className="flex gap-2 items-center"
-                                >
-                                  <Input
-                                    type="text"
-                                    value={desc}
-                                    onChange={(e) => {
-                                      const newDescriptions = [
-                                        ...(field.value || [""]),
-                                      ];
-                                      newDescriptions[descIndex] =
-                                        e.target.value;
-                                      field.onChange(newDescriptions);
-                                    }}
-                                    placeholder={`Poin ${descIndex + 1}`}
-                                    className="flex-1"
-                                  />
-                                  {(field.value || [""]).length > 1 && (
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="icon-sm"
-                                      onClick={() => {
-                                        const newDescriptions =
-                                          field.value?.filter(
-                                            (_, i) => i !== descIndex,
-                                          ) || [];
-                                        field.onChange(newDescriptions);
-                                      }}
-                                    >
-                                      <Trash2 className="h-4 w-4 text-red-500" />
-                                    </Button>
-                                  )}
-                                </div>
-                              ),
-                            )}
-                            <Button
-                              type="button"
-                              onClick={() => {
-                                field.onChange([...(field.value || [""]), ""]);
-                              }}
-                              variant="link"
-                              size="sm"
-                              className="p-0 h-auto"
-                            >
-                              + Tambah poin deskripsi
-                            </Button>
-                          </div>
-                        )}
-                      />
-                    </div>
-                  </div>
-                ))}
-
-                {experienceFields.length === 0 && (
-                  <p className="text-center text-gray-500 py-4">
-                    Belum ada pengalaman kerja.
-                  </p>
-                )}
-              </div>
-            </Card>
-
-            {/* Education */}
-            <Card className="border-none shadow-lg shadow-gray-200/50 bg-white/80 backdrop-blur p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4">
-                  <div className="h-11 w-11 bg-yellow-100 text-yellow-600 rounded-xl flex items-center justify-center">
-                    <GraduationCap className="h-5 w-5" />
-                  </div>
-                  <h2 className="text-2xl font-bold text-gray-900">
-                    Pendidikan
-                  </h2>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    appendEducation({
-                      institution: "",
-                      degree: "",
-                      fieldOfStudy: "",
-                      startDate: "",
-                      endDate: "",
-                    })
-                  }
-                >
-                  <Plus className="h-4 w-4" />
-                  Tambah
-                </Button>
-              </div>
-
-              <div className="space-y-6">
-                {educationFields.map((field, index) => (
-                  <div
-                    key={field.id}
-                    className="p-4 border border-gray-200/80 rounded-xl bg-white/50 space-y-4"
-                  >
-                    <div className="flex justify-between items-start">
-                      <h3 className="font-semibold text-gray-900">
-                        Pendidikan #{index + 1}
-                      </h3>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() => removeEducation(index)}
-                      >
-                        <Trash2 className="h-4 w-4 text-red-600" />
-                      </Button>
-                    </div>
-
-                    <Input
-                      label="Institusi"
-                      placeholder="Universitas Indonesia"
-                      {...register(`education.${index}.institution` as const)}
-                    />
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Input
-                        label="Gelar"
-                        placeholder="S1"
-                        {...register(`education.${index}.degree` as const)}
-                      />
-                      <Input
-                        label="Jurusan"
-                        placeholder="Teknik Informatika"
-                        {...register(
-                          `education.${index}.fieldOfStudy` as const,
-                        )}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Input
-                        label="Tanggal Mulai"
-                        type="month"
-                        {...register(`education.${index}.startDate` as const)}
-                      />
-                      <Input
-                        label="Tanggal Selesai"
-                        type="month"
-                        {...register(`education.${index}.endDate` as const)}
-                      />
-                    </div>
-
-                    <Input
-                      label="IPK (Opsional)"
-                      placeholder="3.50"
-                      {...register(`education.${index}.grade` as const)}
-                    />
-                  </div>
-                ))}
-
-                {educationFields.length === 0 && (
-                  <p className="text-center text-gray-500 py-4">
-                    Belum ada pendidikan.
-                  </p>
-                )}
-              </div>
-            </Card>
-
-            {/* Skills */}
-            <Card className="border-none shadow-lg shadow-gray-200/50 bg-white/80 backdrop-blur p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4">
-                  <div className="h-11 w-11 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center">
-                    <Wrench className="h-5 w-5" />
-                  </div>
-                  <h2 className="text-2xl font-bold text-gray-900">Keahlian</h2>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => appendSkill({ name: "" })}
-                >
-                  <Plus className="h-4 w-4" />
-                  Tambah
-                </Button>
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {skillFields.map((field, index) => (
-                  <div
-                    key={field.id}
-                    className="flex gap-2 items-center bg-white/50 rounded-lg p-2 border"
-                  >
-                    <Input
-                      placeholder="JavaScript"
-                      {...register(`skills.${index}.name` as const)}
-                      className="flex-1 border-none shadow-none focus-visible:ring-0 h-auto p-0"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      onClick={() => removeSkill(index)}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-500" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-              {skillFields.length === 0 && (
-                <p className="text-center text-gray-500 py-4">
-                  Belum ada keahlian.
-                </p>
-              )}
-            </Card>
-
-            {/* Certifications */}
-            <Card className="border-none shadow-lg shadow-gray-200/50 bg-white/80 backdrop-blur p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4">
-                  <div className="h-11 w-11 bg-red-100 text-red-600 rounded-xl flex items-center justify-center">
-                    <Award className="h-5 w-5" />
-                  </div>
-                  <h2 className="text-2xl font-bold text-gray-900">
-                    Sertifikasi
-                  </h2>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    appendCertification({
-                      name: "",
-                      issuer: "",
-                      year: "",
-                    })
-                  }
-                >
-                  <Plus className="h-4 w-4" />
-                  Tambah
-                </Button>
-              </div>
-
-              <div className="space-y-6">
-                {certificationFields.map((field, index) => (
-                  <div
-                    key={field.id}
-                    className="p-4 border border-gray-200/80 rounded-xl bg-white/50 space-y-4"
-                  >
-                    <div className="flex justify-between items-start">
-                      <h3 className="font-semibold text-gray-900">
-                        Sertifikasi #{index + 1}
-                      </h3>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() => removeCertification(index)}
-                      >
-                        <Trash2 className="h-4 w-4 text-red-600" />
-                      </Button>
-                    </div>
-
-                    <Input
-                      label="Nama Sertifikasi"
-                      placeholder="AWS Certified Solutions Architect"
-                      {...register(`certifications.${index}.name` as const)}
-                    />
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Input
-                        label="Penerbit"
-                        placeholder="Amazon Web Services"
-                        {...register(`certifications.${index}.issuer` as const)}
-                      />
-                      <Input
-                        label="Tahun"
-                        type="number"
-                        placeholder="2023"
-                        {...register(`certifications.${index}.year` as const)}
-                      />
-                    </div>
-                  </div>
-                ))}
-
-                {certificationFields.length === 0 && (
-                  <p className="text-center text-gray-500 py-4">
-                    Belum ada sertifikasi.
-                  </p>
-                )}
-              </div>
-            </Card>
-
-            {/* AI Summary */}
-            <Card className="border-none shadow-lg shadow-gray-200/50 bg-white/80 backdrop-blur p-6">
-              <div className="flex items-center gap-4 mb-6">
-                <div className="h-11 w-11 bg-pink-100 text-pink-600 rounded-xl flex items-center justify-center">
-                  <Sparkles className="h-5 w-5" />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900">AI Summary</h2>
-              </div>
-
-              <div className="space-y-4">
-                <p className="text-sm text-gray-600">
-                  Generate ringkasan profesional otomatis menggunakan AI
-                  berdasarkan data profil Anda.
-                </p>
-
-                <Button
-                  type="button"
-                  onClick={handleGenerateAISummary}
-                  disabled={isGeneratingAI}
-                  className="bg-pink-600 hover:bg-pink-700 text-white"
-                >
-                  {isGeneratingAI ? (
-                    "Generating..."
-                  ) : (
-                    <>
-                      <Sparkles className="h-4 w-4 mr-2" />
-                      Generate with AI
-                    </>
-                  )}
-                </Button>
-
-                <Textarea
-                  label="AI Generated Summary"
-                  rows={6}
-                  placeholder="Klik tombol di atas untuk generate summary..."
-                  {...register("aiSummary")}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                <Input
+                  label="LinkedIn"
+                  placeholder="linkedin.com/..."
+                  {...register("linkedIn")}
+                  className="bg-gray-50"
+                />
+                <Input
+                  label="Github"
+                  placeholder="github.com/..."
+                  {...register("github")}
+                  className="bg-gray-50"
+                />
+                <Input
+                  label="Portfolio"
+                  placeholder="yourweb.com"
+                  {...register("portfolio")}
+                  className="bg-gray-50"
                 />
               </div>
-            </Card>
+            </div>
+          </div>
+        </Card>
 
-            {/* Submit Button */}
-            <div className="flex justify-end gap-4 mt-10">
+        {/* 2. SUMMARY */}
+        <Card className="border border-gray-200 shadow-sm bg-white rounded-2xl overflow-hidden">
+          <div className="p-6 md:p-8 space-y-6">
+            <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
+              <div className="h-10 w-10 bg-purple-50 text-purple-600 rounded-lg flex items-center justify-center">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">
+                  Professional Summary
+                </h2>
+              </div>
+            </div>
+            <Textarea
+              label="Tentang Saya"
+              rows={5}
+              {...register("summary")}
+              className="bg-gray-50 border-gray-200"
+            />
+          </div>
+        </Card>
+
+        {/* 3. EXPERIENCE */}
+        <Card className="border border-gray-200 shadow-sm bg-white rounded-2xl overflow-hidden">
+          <div className="p-6 md:p-8 space-y-6">
+            <div className="flex justify-between items-center border-b border-gray-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center">
+                  <Briefcase className="h-5 w-5" />
+                </div>
+                <h2 className="text-lg font-bold text-gray-900">Pengalaman</h2>
+              </div>
               <Button
                 type="button"
                 variant="outline"
-                size="lg"
-                onClick={() => router.push("/dashboard")}
+                size="sm"
+                onClick={() =>
+                  appendExperience({
+                    company: "",
+                    position: "",
+                    startDate: "",
+                    endDate: "",
+                    isCurrent: false,
+                    description: [""],
+                  })
+                }
               >
-                Batal
-              </Button>
-              <Button
-                type="submit"
-                variant="default"
-                size="lg"
-                disabled={isSubmitting}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                {isSubmitting ? "Menyimpan..." : "Simpan Profil"}
+                <Plus className="h-4 w-4 mr-2" /> Tambah
               </Button>
             </div>
-          </form>
+            {experienceFields.map((field: any, index: number) => (
+              <div
+                key={field.id}
+                className="p-5 border border-gray-200 rounded-xl bg-gray-50/50 space-y-4"
+              >
+                <div className="flex justify-between">
+                  <Badge variant="outline" className="bg-white">
+                    #{index + 1}
+                  </Badge>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeExperience(index)}
+                  >
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <Input
+                    label="Perusahaan"
+                    {...register(`experience.${index}.company` as const)}
+                    className="bg-white"
+                  />
+                  <Input
+                    label="Posisi"
+                    {...register(`experience.${index}.position` as const)}
+                    className="bg-white"
+                  />
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <Input
+                    label="Mulai"
+                    type="month"
+                    {...register(`experience.${index}.startDate` as const)}
+                    className="bg-white"
+                  />
+                  <Input
+                    label="Selesai"
+                    type="month"
+                    {...register(`experience.${index}.endDate` as const)}
+                    className="bg-white"
+                  />
+                </div>
+                <Controller
+                  name={`experience.${index}.description`}
+                  control={control}
+                  render={({ field }) => (
+                    <div className="space-y-2">
+                      {(field.value || [""]).map((desc: string, i: number) => (
+                        <div key={i} className="flex gap-2">
+                          <Input
+                            value={desc}
+                            onChange={(e) => {
+                              const n = [...(field.value || [])];
+                              n[i] = e.target.value;
+                              field.onChange(n);
+                            }}
+                            className="bg-white"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              const n = field.value?.filter(
+                                (_, idx) => idx !== i,
+                              );
+                              field.onChange(n);
+                            }}
+                          >
+                            <Trash2 className="h-3 w-3 text-red-400" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button
+                        type="button"
+                        variant="link"
+                        size="sm"
+                        onClick={() =>
+                          field.onChange([...(field.value || []), ""])
+                        }
+                        className="text-xs"
+                      >
+                        + Tambah Poin
+                      </Button>
+                    </div>
+                  )}
+                />
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* 4. EDUCATION (Simplified for brevity in response) */}
+        <Card className="border border-gray-200 shadow-sm bg-white rounded-2xl overflow-hidden">
+          <div className="p-6 md:p-8 space-y-6">
+            <div className="flex justify-between items-center border-b border-gray-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 bg-yellow-50 text-yellow-600 rounded-lg flex items-center justify-center">
+                  <GraduationCap className="h-5 w-5" />
+                </div>
+                <h2 className="text-lg font-bold text-gray-900">Pendidikan</h2>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  appendEducation({
+                    institution: "",
+                    degree: "",
+                    fieldOfStudy: "",
+                    startDate: "",
+                    endDate: "",
+                  })
+                }
+              >
+                <Plus className="h-4 w-4 mr-2" /> Tambah
+              </Button>
+            </div>
+            {educationFields.map((field, index) => (
+              <div
+                key={field.id}
+                className="p-5 border border-gray-200 rounded-xl bg-gray-50/50 space-y-4"
+              >
+                <div className="flex justify-between">
+                  <Badge variant="outline" className="bg-white">
+                    #{index + 1}
+                  </Badge>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeEducation(index)}
+                  >
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
+                </div>
+                <Input
+                  label="Institusi"
+                  {...register(`education.${index}.institution` as const)}
+                  className="bg-white"
+                />
+                <div className="grid md:grid-cols-2 gap-4">
+                  <Input
+                    label="Gelar"
+                    {...register(`education.${index}.degree` as const)}
+                    className="bg-white"
+                  />
+                  <Input
+                    label="Jurusan"
+                    {...register(`education.${index}.fieldOfStudy` as const)}
+                    className="bg-white"
+                  />
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <Input
+                    label="Mulai"
+                    type="month"
+                    {...register(`education.${index}.startDate` as const)}
+                    className="bg-white"
+                  />
+                  <Input
+                    label="Selesai"
+                    type="month"
+                    {...register(`education.${index}.endDate` as const)}
+                    className="bg-white"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* 5. SKILLS */}
+        <Card className="border border-gray-200 shadow-sm bg-white rounded-2xl overflow-hidden">
+          <div className="p-6 md:p-8 space-y-6">
+            <div className="flex justify-between items-center border-b border-gray-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center">
+                  <Wrench className="h-5 w-5" />
+                </div>
+                <h2 className="text-lg font-bold text-gray-900">Skill</h2>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => appendSkill({ name: "" })}
+              >
+                <Plus className="h-4 w-4 mr-2" /> Tambah
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {skillFields.map((field, index) => (
+                <div
+                  key={field.id}
+                  className="flex gap-1 items-center bg-gray-50 rounded-lg p-1 border border-gray-200"
+                >
+                  <Input
+                    placeholder="Skill..."
+                    {...register(`skills.${index}.name` as const)}
+                    className="border-0 bg-transparent h-8 text-sm"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={() => removeSkill(index)}
+                  >
+                    <Trash2 className="h-3 w-3 text-red-400" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
+
+        {/* 6. AI SUMMARY GENERATOR */}
+        <Card className="border border-indigo-100 shadow-lg bg-gradient-to-br from-white to-indigo-50/30 rounded-2xl overflow-hidden">
+          <div className="p-6 md:p-8 space-y-6">
+            <div className="flex justify-between items-center border-b border-indigo-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <h2 className="text-lg font-bold text-gray-900">AI Summary</h2>
+              </div>
+              <Button
+                type="button"
+                onClick={handleGenerateAISummary}
+                disabled={isGeneratingAI}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
+                {isGeneratingAI ? "Generating..." : "Generate AI"}
+              </Button>
+            </div>
+            <Textarea
+              rows={6}
+              placeholder="Hasil AI..."
+              {...register("aiSummary")}
+              className="border-0 bg-white/50"
+            />
+          </div>
+        </Card>
+
+        {/* BUTTON SAVE (FLOATING OR BOTTOM) */}
+        <div className="flex justify-end pt-4 pb-20">
+          <Button
+            type="submit"
+            size="lg"
+            disabled={isSubmitting}
+            className="bg-black text-white hover:bg-gray-800 rounded-xl px-10 shadow-xl"
+          >
+            {isSubmitting ? "Menyimpan..." : "Simpan Perubahan"}
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+// --- SUB-COMPONENT: PLACEHOLDERS (Untuk Tab Lain) ---
+const HistorySection = () => (
+  <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-gray-200">
+    <div className="h-16 w-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+      <History className="h-8 w-8 text-gray-400" />
+    </div>
+    <h3 className="text-lg font-bold text-gray-900">
+      Belum ada Riwayat Interview
+    </h3>
+    <p className="text-gray-500 mt-1 mb-6 text-sm text-center max-w-md">
+      Fitur AI Interview akan mencatat semua simulasi interview kamu di sini.
+    </p>
+    <Link href="/interview">
+      <Button>Mulai Interview Sekarang</Button>
+    </Link>
+  </div>
+);
+
+const SavedJobsSection = () => (
+  <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-gray-200">
+    <div className="h-16 w-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+      <Bookmark className="h-8 w-8 text-gray-400" />
+    </div>
+    <h3 className="text-lg font-bold text-gray-900">
+      Belum ada Pekerjaan Disimpan
+    </h3>
+    <p className="text-gray-500 mt-1 mb-6 text-sm text-center max-w-md">
+      Simpan lowongan yang menarik agar mudah ditemukan kembali nanti.
+    </p>
+    <Link href="/jobs">
+      <Button variant="outline">Cari Lowongan</Button>
+    </Link>
+  </div>
+);
+
+// --- MAIN PAGE COMPONENT (DENGAN SIDEBAR) ---
+export default function ProfilePage() {
+  const [activeTab, setActiveTab] = useState("profile"); // State untuk Tab Aktif
+
+  const menuItems = [
+    { id: "profile", label: "Informasi Profil", icon: User },
+    { id: "saved", label: "Pekerjaan Disimpan", icon: Bookmark, badge: 0 },
+    { id: "history", label: "Riwayat AI Interview", icon: History },
+    { id: "settings", label: "Pengaturan Akun", icon: Settings },
+  ];
+
+  return (
+    <div className="min-h-screen bg-[#F8F9FC]">
+      <Navbar />
+
+      <div className="container mx-auto px-4 pt-24 pb-16 max-w-7xl">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* === SIDEBAR (3 Columns) === */}
+          <div className="lg:col-span-3">
+            <div className="bg-white border border-gray-200 rounded-2xl shadow-sm sticky top-24 overflow-hidden">
+              {/* User Mini Profile (Header Sidebar) */}
+              <div className="p-6 bg-gradient-to-b from-blue-50/50 to-white border-b border-gray-100 text-center">
+                <div className="w-20 h-20 bg-blue-100 rounded-full mx-auto mb-3 flex items-center justify-center text-2xl font-bold text-blue-600 border-4 border-white shadow-sm">
+                  ME
+                </div>
+                <h3 className="font-bold text-gray-900">My Profile</h3>
+                <p className="text-xs text-gray-500">Job Seeker</p>
+              </div>
+
+              {/* Navigation Menu */}
+              <div className="p-3 space-y-1">
+                {menuItems.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveTab(item.id)}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                      activeTab === item.id
+                        ? "bg-blue-600 text-white shadow-md shadow-blue-200"
+                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <item.icon
+                        className={`w-4 h-4 ${activeTab === item.id ? "text-white" : "text-gray-400"}`}
+                      />
+                      {item.label}
+                    </div>
+                    {/* Optional Badge logic */}
+                    {item.badge !== undefined && (
+                      <span
+                        className={`text-[10px] px-2 py-0.5 rounded-full ${activeTab === item.id ? "bg-white/20 text-white" : "bg-gray-100 text-gray-600"}`}
+                      >
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* === CONTENT AREA (9 Columns) === */}
+          <div className="lg:col-span-9">
+            <div className="mb-6">
+              <h1 className="text-2xl font-bold text-gray-900">
+                {menuItems.find((i) => i.id === activeTab)?.label}
+              </h1>
+              <p className="text-gray-500 text-sm">
+                Kelola informasi dan aktivitasmu di sini.
+              </p>
+            </div>
+
+            {/* Render Content Based on Active Tab */}
+            {activeTab === "profile" && <ProfileEditSection />}
+            {activeTab === "saved" && <SavedJobsSection />}
+            {activeTab === "history" && <HistorySection />}
+            {activeTab === "settings" && (
+              <div className="bg-white rounded-2xl p-10 text-center border border-gray-200">
+                <Settings className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500">
+                  Pengaturan akun akan segera hadir.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
