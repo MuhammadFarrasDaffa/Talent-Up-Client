@@ -85,14 +85,44 @@ export default function ProfilePage() {
     name: "certifications",
   });
 
+  // Helper function to convert date to YYYY-MM format for month input
+  const formatDateToMonth = (
+    date: string | Date | null | undefined,
+  ): string => {
+    if (!date) return "";
+    try {
+      const d = new Date(date);
+      if (isNaN(d.getTime())) return "";
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      return `${year}-${month}`;
+    } catch {
+      return "";
+    }
+  };
+
   // Load existing profile
   useEffect(() => {
     const loadProfile = async () => {
       try {
         const { profile } = await profileService.getProfile();
         if (profile) {
+          // Convert date fields to YYYY-MM format for month inputs
+          const formattedProfile = {
+            ...profile,
+            experience: profile.experience?.map((exp: Experience) => ({
+              ...exp,
+              startDate: formatDateToMonth(exp.startDate),
+              endDate: formatDateToMonth(exp.endDate),
+            })),
+            education: profile.education?.map((edu: Education) => ({
+              ...edu,
+              startDate: formatDateToMonth(edu.startDate),
+              endDate: formatDateToMonth(edu.endDate),
+            })),
+          };
           // Use reset to populate the entire form, including field arrays
-          reset(profile as ProfileFormData);
+          reset(formattedProfile as ProfileFormData);
         }
       } catch (error) {
         // If profile doesn't exist (404), that's okay. The form will be empty.

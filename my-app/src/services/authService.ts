@@ -42,4 +42,25 @@ export const authService = {
       throw error;
     }
   },
+
+  // --- GOOGLE AUTH ---
+  googleAuth: async (credential: string) => {
+    try {
+      const res = await fetch(`${API_URL}/auth/google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credential }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "Google authentication failed");
+      }
+
+      return data;
+    } catch (error: any) {
+      throw error;
+    }
+  },
 };
