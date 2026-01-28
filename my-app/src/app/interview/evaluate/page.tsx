@@ -7,6 +7,7 @@ import { EvaluationCard } from "./components/EvaluationCard";
 import { Recommendations } from "./components/Recommendations";
 import { StateCard } from "./components/StateCard";
 import { InterviewEvaluation } from "@/types";
+import Navbar from "@/components/layout/Navbar";
 
 export default function InterviewEvaluationPage() {
   const searchParams = useSearchParams();
@@ -76,7 +77,8 @@ export default function InterviewEvaluationPage() {
 
   return (
     <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 py-12 px-6">
-      <div className="max-w-6xl mx-auto">
+      <Navbar />
+      <div className="max-w-6xl mx-auto mt-12">
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-800 mb-3">
@@ -137,7 +139,7 @@ export default function InterviewEvaluationPage() {
 
             <div className="flex gap-4 justify-center">
               <button
-                onClick={() => (window.location.href = "/interviews")}
+                onClick={() => (window.location.href = "/interview")}
                 className="px-6 py-3 bg-gray-200 text-gray-800 rounded-lg font-semibold hover:bg-gray-300 transition"
               >
                 Start New Interview

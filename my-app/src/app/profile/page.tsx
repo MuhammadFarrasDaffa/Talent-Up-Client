@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { profileService, aiService } from "@/services/profileService";
+import { paymentService } from "@/services/paymentService";
 import {
   User,
   Briefcase,
@@ -26,6 +27,14 @@ import {
   Receipt,
   UploadCloud,
   FileText,
+  Trophy,
+  Eye,
+  CheckCircle,
+  ChevronDown,
+  ChevronUp,
+  MessageSquare,
+  Calendar,
+  Clock,
 } from "lucide-react";
 import type { ProfileFormData, Experience, Education } from "@/types/index";
 import { Badge } from "@/components/ui/badge";
@@ -663,33 +672,523 @@ const ProfileEditSection = ({
 };
 
 // --- PLACEHOLDER UNTUK HISTORY PEMBELIAN ---
-const PaymentHistorySection = () => (
-  <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-gray-200">
-    <div className="h-16 w-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
-      <Receipt className="h-8 w-8 text-gray-400" />
+interface Payment {
+  _id: string;
+  orderId: string;
+  packageType: string;
+  tokenAmount: number;
+  price: number;
+  status: string;
+  createdAt: string;
+}
+
+const PaymentHistorySection = () => {
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
+  useEffect(() => {
+    loadPaymentHistory();
+  }, []);
+
+  const loadPaymentHistory = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
+      const response = await paymentService.getPaymentHistory(token);
+      setPayments(response.data || []);
+    } catch (error: any) {
+      console.error("Failed to load payment history:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    const statusConfig: Record<string, { className: string; label: string }> = {
+      success: {
+        className: "bg-green-100 text-green-800 border-green-300",
+        label: "Success",
+      },
+      pending: {
+        className: "bg-yellow-100 text-yellow-800 border-yellow-300",
+        label: "Pending",
+      },
+      failed: {
+        className: "bg-red-100 text-red-800 border-red-300",
+        label: "Failed",
+      },
+      expired: {
+        className: "bg-gray-100 text-gray-800 border-gray-300",
+        label: "Expired",
+      },
+    };
+
+    const config = statusConfig[status] || {
+      className: "bg-gray-100 text-gray-800 border-gray-300",
+      label: status,
+    };
+    return (
+      <Badge className={`${config.className} border`}>{config.label}</Badge>
+    );
+  };
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat("id-ID", {
+      style: "currency",
+      currency: "IDR",
+    }).format(price);
+  };
+
+  const formatDate = (date: string) => {
+    return new Date(date).toLocaleString("id-ID", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-20 bg-white rounded-2xl border border-gray-200">
+        <div className="text-center">
+          <div className="loading loading-spinner loading-lg mb-4"></div>
+          <p className="text-gray-600">Memuat riwayat transaksi...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (payments.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-gray-200">
+        <div className="h-16 w-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+          <Receipt className="h-8 w-8 text-gray-400" />
+        </div>
+        <h3 className="text-lg font-bold text-gray-900">Belum ada Transaksi</h3>
+        <p className="text-gray-500 mt-1 mb-6 text-sm text-center max-w-md">
+          Kamu bisa melakukan transaksi pembelian token untuk menggunakan
+          layanan AI kami.
+        </p>
+        <Button variant="outline" onClick={() => router.push("/payment")}>
+          Beli Token
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">
+            Riwayat Pembelian Token
+          </h2>
+          <p className="text-gray-600 text-sm mt-1">
+            Total {payments.length} transaksi
+          </p>
+        </div>
+        <Button variant="outline" onClick={() => router.push("/payment")}>
+          <Plus className="w-4 h-4 mr-2" />
+          Beli Token
+        </Button>
+      </div>
+
+      {payments.map((payment) => (
+        <Card
+          key={payment._id}
+          className="p-6 border border-gray-200 bg-white rounded-xl hover:shadow-md transition-shadow"
+        >
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
+                  <Receipt className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900">
+                    {payment.packageType.charAt(0).toUpperCase() +
+                      payment.packageType.slice(1)}{" "}
+                    Package
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    Order ID: {payment.orderId}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Tokens</p>
+                  <p className="font-semibold text-gray-900">
+                    {payment.tokenAmount} Tokens
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Price</p>
+                  <p className="font-semibold text-gray-900">
+                    {formatPrice(payment.price)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Date</p>
+                  <p className="font-semibold text-gray-900 text-sm">
+                    {formatDate(payment.createdAt)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Status</p>
+                  {getStatusBadge(payment.status)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
+      ))}
     </div>
-    <h3 className="text-lg font-bold text-gray-900">Belum ada Transaksi</h3>
-    <p className="text-gray-500 mt-1 mb-6 text-sm text-center max-w-md">
-      Riwayat pembelian token atau langganan kamu akan muncul di sini.
-    </p>
-    <Button variant="outline">Beli Token</Button>
-  </div>
-);
+  );
+};
 
 // --- PLACEHOLDERS LAINNYA ---
-const HistorySection = () => (
-  <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-gray-200">
-    <div className="h-16 w-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
-      <History className="h-8 w-8 text-gray-400" />
+interface Question {
+  _id: string;
+  content: string;
+  type: string;
+  level: string;
+  followUp: boolean;
+}
+
+interface Answer {
+  questionId: string;
+  question: string;
+  transcription: string;
+  duration: number;
+  isFollowUp: boolean;
+  acknowledgment?: string;
+}
+
+interface InterviewHistoryItem {
+  _id: string;
+  category: string;
+  level: string;
+  tier: string;
+  completedAt: string;
+  evaluated: boolean;
+  questions: Question[];
+  answers: Answer[];
+  evaluation?: {
+    overallScore: number;
+    overallGrade: string;
+  };
+}
+
+const HistorySection = () => {
+  const [interviews, setInterviews] = useState<InterviewHistoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedInterviews, setExpandedInterviews] = useState<Set<string>>(
+    new Set(),
+  );
+  const router = useRouter();
+
+  useEffect(() => {
+    fetchInterviewHistory();
+  }, []);
+
+  const fetchInterviewHistory = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch("http://localhost:3000/interviews/history", {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch interview history");
+      }
+
+      const data = await response.json();
+      setInterviews(data.interviews);
+    } catch (error) {
+      console.error("Error fetching interview history:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(date);
+  };
+
+  const getLevelColor = (level: string) => {
+    switch (level.toLowerCase()) {
+      case "junior":
+        return "bg-green-100 text-green-800 border-green-300";
+      case "senior":
+        return "bg-purple-100 text-purple-800 border-purple-300";
+      case "middle":
+        return "bg-blue-100 text-blue-800 border-blue-300";
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-300";
+    }
+  };
+
+  const getTierColor = (tier: string) => {
+    return tier.toLowerCase() === "premium"
+      ? "bg-amber-100 text-amber-800 border-amber-300"
+      : "bg-slate-100 text-slate-800 border-slate-300";
+  };
+
+  const getGradeColor = (grade: string) => {
+    if (grade.startsWith("A")) return "text-green-600";
+    if (grade.startsWith("B")) return "text-blue-600";
+    if (grade.startsWith("C")) return "text-yellow-600";
+    return "text-red-600";
+  };
+
+  const handleViewEvaluation = (interviewId: string) => {
+    router.push(`/interview/evaluate?id=${interviewId}`);
+  };
+
+  const toggleExpand = (interviewId: string) => {
+    setExpandedInterviews((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(interviewId)) {
+        newSet.delete(interviewId);
+      } else {
+        newSet.add(interviewId);
+      }
+      return newSet;
+    });
+  };
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-20 bg-white rounded-2xl border border-gray-200">
+        <div className="text-center">
+          <div className="loading loading-spinner loading-lg mb-4"></div>
+          <p className="text-gray-600">Memuat riwayat interview...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (interviews.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-gray-200">
+        <div className="h-16 w-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+          <History className="h-8 w-8 text-gray-400" />
+        </div>
+        <h3 className="text-lg font-bold text-gray-900">
+          Belum ada Riwayat Interview
+        </h3>
+        <p className="text-gray-500 mt-1 mb-6 text-sm text-center max-w-md">
+          Kamu bisa melakukan Interview AI untuk melatih kemampuan wawancaramu
+          dengan klik tombol di bawah.
+        </p>
+        <Link href="/interview">
+          <Button>Mulai Interview</Button>
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">
+            Riwayat AI Interview
+          </h2>
+          <p className="text-gray-600 text-sm mt-1">
+            Total {interviews.length} interview
+          </p>
+        </div>
+        <Link href="/interview">
+          <Button>
+            <Plus className="w-4 h-4 mr-2" />
+            Mulai Interview
+          </Button>
+        </Link>
+      </div>
+
+      {interviews.map((interview) => (
+        <Card
+          key={interview._id}
+          className="p-6 border border-gray-200 bg-white rounded-xl hover:shadow-md transition-shadow"
+        >
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            {/* Left Section - Interview Info */}
+            <div className="flex-1">
+              <div className="flex items-start gap-3 mb-3">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Trophy className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold text-gray-900 mb-1">
+                    {interview.category}
+                  </h3>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    <Badge
+                      className={`${getLevelColor(interview.level)} border`}
+                    >
+                      {interview.level}
+                    </Badge>
+                    <Badge className={`${getTierColor(interview.tier)} border`}>
+                      {interview.tier}
+                    </Badge>
+                    {interview.evaluated && (
+                      <Badge className="bg-green-50 text-green-700 border border-green-300">
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        Evaluated
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-4 text-sm text-gray-600">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-4 h-4" />
+                      {formatDate(interview.completedAt)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Evaluation Score */}
+              {interview.evaluated && interview.evaluation && (
+                <div className="flex items-center gap-4 mt-4 pt-4 border-t border-gray-200">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">Score:</span>
+                    <span className="text-2xl font-bold text-blue-600">
+                      {interview.evaluation.overallScore}
+                    </span>
+                    <span className="text-sm text-gray-500">/100</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">Grade:</span>
+                    <span
+                      className={`text-2xl font-bold ${getGradeColor(interview.evaluation.overallGrade)}`}
+                    >
+                      {interview.evaluation.overallGrade}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Right Section - Actions */}
+            <div className="flex flex-col gap-2 md:items-end">
+              <Button
+                onClick={() => handleViewEvaluation(interview._id)}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Eye className="w-4 h-4 mr-2" />
+                {interview.evaluated ? "Lihat Evaluasi" : "Evaluate Interview"}
+              </Button>
+
+              {/* Toggle Details Button */}
+              <Button
+                onClick={() => toggleExpand(interview._id)}
+                variant="outline"
+                className="border-gray-300"
+              >
+                {expandedInterviews.has(interview._id) ? (
+                  <>
+                    <ChevronUp className="w-4 h-4 mr-2" />
+                    Sembunyikan Detail
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-4 h-4 mr-2" />
+                    Lihat Detail
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {/* Expanded Section - Questions & Answers */}
+          {expandedInterviews.has(interview._id) && (
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <MessageSquare className="w-5 h-5" />
+                Questions & Answers ({interview.answers?.length || 0})
+              </h4>
+
+              <div className="space-y-4">
+                {interview.answers?.map((answer, index) => (
+                  <div key={index} className="bg-gray-50 rounded-lg p-4">
+                    {/* Question */}
+                    <div className="mb-3">
+                      <div className="flex items-start gap-2 mb-2">
+                        <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-xs">
+                          Q{index + 1}
+                        </Badge>
+                        {answer.isFollowUp && (
+                          <Badge className="bg-purple-100 text-purple-800 border-purple-300 text-xs">
+                            Follow-up
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-gray-900 font-medium">
+                        {answer.question}
+                      </p>
+                    </div>
+
+                    {/* Answer */}
+                    <div className="ml-4 pl-4 border-l-2 border-blue-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge className="bg-green-100 text-green-800 border-green-300 text-xs">
+                          A{index + 1}
+                        </Badge>
+                        {answer.duration > 0 && (
+                          <span className="text-xs text-gray-500 flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {formatDuration(answer.duration)}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-gray-700 text-sm">
+                        {answer.transcription}
+                      </p>
+
+                      {/* Acknowledgment */}
+                      {answer.acknowledgment && (
+                        <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-100">
+                          <p className="text-xs text-blue-800 italic">
+                            💬 {answer.acknowledgment}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </Card>
+      ))}
     </div>
-    <h3 className="text-lg font-bold text-gray-900">
-      Belum ada Riwayat Interview
-    </h3>
-    <Link href="/interview">
-      <Button>Mulai Interview</Button>
-    </Link>
-  </div>
-);
+  );
+};
 
 const SavedJobsSection = () => (
   <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-gray-200">
