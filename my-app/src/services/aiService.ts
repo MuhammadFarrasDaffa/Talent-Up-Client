@@ -6,7 +6,7 @@ export const aiService = {
     try {
       const token = localStorage.getItem("token"); // Ambil token auth
 
-      const res = await fetch(`${API_URL}/jobs/${jobId}/analyze`, {
+      const res = await fetch(`${API_URL}/jobs/${jobId}/match`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -26,7 +26,14 @@ export const aiService = {
         throw new Error(data.message || "Gagal menganalisis kecocokan.");
       }
 
-      return data.data; // Mengembalikan hasil analisis AI
+      // Map response fields from backend to frontend expected format
+      const result = data.data;
+      return {
+        matchPercentage: result.matchScore,
+        reasoning: result.matchExplanation,
+        matchingSkills: result.matchingPoints || [],
+        missingSkills: result.missingPoints || [],
+      };
     } catch (error: any) {
       throw error;
     }

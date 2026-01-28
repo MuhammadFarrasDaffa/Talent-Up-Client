@@ -160,6 +160,18 @@ export interface ProfileFormData {
   certifications: Certification[];
 }
 
+export interface ParsedResumeData {
+  fullName: string;
+  email: string;
+  phone: string;
+  title: string;
+  summary: string;
+  location: string;
+  skills: (string | Skill)[];
+  education: Partial<Education>[];
+  experience: Partial<Experience>[];
+}
+
 export interface Job {
   _id: string;
   title: string;

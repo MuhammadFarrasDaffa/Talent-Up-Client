@@ -11,12 +11,12 @@ import {
   ArrowRight,
   UserCog,
   AlertCircle,
-  BrainCircuit,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { aiService } from "@/services/aiService";
+import { profileService } from "@/services/profileService";
 import StarBorder from "@/components/ui/StarBorder";
 
 interface JobAIAnalysisProps {
@@ -43,20 +43,20 @@ export default function JobAIAnalysis({ jobId }: JobAIAnalysisProps) {
     setIsProfileIncomplete(false);
 
     try {
-      const userStr = localStorage.getItem("user");
-      if (!userStr) {
+      const token = localStorage.getItem("token");
+      if (!token) {
         setIsLoggedIn(false);
         setLoading(false);
         return;
       }
 
-      const user = JSON.parse(userStr);
+      // --- 1. FETCH PROFILE DATA DARI API (bukan localStorage) ---
+      const { profile } = await profileService.getProfile();
 
-      // --- 1. VALIDASI KELENGKAPAN PROFILE ---
-      // Kita anggap profile "kosong" jika tidak ada Skill ATAU Pengalaman
-      // Anda bisa sesuaikan kondisinya (misal: wajib ada CV url, dsb)
-      const hasSkills = user.skills && user.skills.length > 0;
-      const hasExperience = user.experience && user.experience.length > 0;
+      // --- 2. VALIDASI KELENGKAPAN PROFILE ---
+      // Cek apakah ada Skill ATAU Pengalaman
+      const hasSkills = profile.skills && profile.skills.length > 0;
+      const hasExperience = profile.experience && profile.experience.length > 0;
 
       if (!hasSkills && !hasExperience) {
         setIsProfileIncomplete(true);
@@ -64,20 +64,34 @@ export default function JobAIAnalysis({ jobId }: JobAIAnalysisProps) {
         return; // Stop proses, jangan panggil API
       }
 
-      // --- 2. JIKA LENGKAP, LANJUT ANALISIS ---
+      // --- 3. JIKA LENGKAP, LANJUT ANALISIS ---
+      // Transform skills: array of objects { name: string } -> array of strings
+      const skillsArray = (profile.skills || []).map((skill: any) =>
+        typeof skill === "string" ? skill : skill.name,
+      );
+
       const userProfilePayload = {
-        name: user.name,
-        title: user.jobTitle || "Professional",
-        skills: user.skills || [],
-        experience: user.experience || [],
-        education: user.education || [],
+        name: profile.fullName || "Professional",
+        title: profile.title || "Professional",
+        summary: profile.summary || "",
+        skills: skillsArray,
+        experience: profile.experience || [],
+        education: profile.education || [],
       };
 
       const aiResult = await aiService.analyzeMatch(jobId, userProfilePayload);
       setResult(aiResult);
     } catch (err: any) {
       console.error(err);
-      setError("Terjadi kesalahan koneksi AI. Silakan coba lagi.");
+      // Handle berbagai jenis error
+      if (err.message?.includes("Please login") || err.status === 401) {
+        setIsLoggedIn(false);
+        setError("Sesi login telah berakhir. Silakan login kembali.");
+      } else if (err.message?.includes("Failed to get profile")) {
+        setError("Gagal mengambil data profil. Pastikan server berjalan.");
+      } else {
+        setError("Terjadi kesalahan koneksi AI. Silakan coba lagi.");
+      }
     } finally {
       setLoading(false);
     }
@@ -125,7 +139,7 @@ export default function JobAIAnalysis({ jobId }: JobAIAnalysisProps) {
           </p>
 
           <div className="space-y-2">
-            <Link href="/profile/edit">
+            <Link href="/profile">
               <Button className="w-full h-9 text-xs bg-orange-600 hover:bg-orange-700 text-white shadow-md shadow-orange-200">
                 Lengkapi Profil
               </Button>
@@ -146,26 +160,35 @@ export default function JobAIAnalysis({ jobId }: JobAIAnalysisProps) {
 
   // --- VIEW 3: HASIL ANALISIS (RESULT) ---
   if (result) {
+    const scoreColor =
+      result.matchPercentage >= 70
+        ? "bg-emerald-500"
+        : result.matchPercentage >= 50
+          ? "bg-orange-500"
+          : "bg-red-500";
+
     return (
       <div className="rounded-xl overflow-hidden bg-white border border-gray-100 shadow-lg relative ring-1 ring-black/5">
-        <div
-          className={`absolute top-0 left-0 w-full h-1 ${result.matchPercentage >= 70 ? "bg-emerald-500" : "bg-orange-500"}`}
-        />
+        {/* Top Score Bar */}
+        <div className={`absolute top-0 left-0 w-full h-1.5 ${scoreColor}`} />
 
         <div className="p-5">
+          {/* Header: Score & Close Button */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white shadow-md">
-                <span className="font-bold text-sm">
+              <div
+                className={`w-12 h-12 rounded-xl ${scoreColor} flex items-center justify-center text-white shadow-md`}
+              >
+                <span className="font-bold text-lg">
                   {result.matchPercentage}%
                 </span>
               </div>
               <div>
-                <div className="text-xs font-bold text-gray-900 uppercase tracking-wide">
-                  Match Score
+                <div className="text-sm font-bold text-gray-900">
+                  MATCH SCORE
                 </div>
-                <div className="text-[10px] text-gray-500">
-                  Based on your profile
+                <div className="text-xs text-gray-500">
+                  Berdasarkan profil kamu
                 </div>
               </div>
             </div>
@@ -173,60 +196,72 @@ export default function JobAIAnalysis({ jobId }: JobAIAnalysisProps) {
               onClick={() => setResult(null)}
               variant="ghost"
               size="icon"
-              className="h-6 w-6 text-gray-400 hover:text-gray-600"
+              className="h-7 w-7 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full"
             >
-              <XCircle className="w-4 h-4" />
+              <XCircle className="w-5 h-5" />
             </Button>
           </div>
 
-          <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 mb-4">
-            <p className="text-xs text-slate-700 italic leading-relaxed">
-              "{result.reasoning}"
+          {/* Summary/Reasoning */}
+          <div className="bg-gradient-to-r from-slate-50 to-slate-100/50 p-4 rounded-xl border border-slate-200 mb-5">
+            <p className="text-sm text-slate-700 leading-relaxed">
+              {result.reasoning}
             </p>
           </div>
 
-          <div className="space-y-3">
-            <div className="flex items-start gap-2">
-              <div className="mt-0.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+          {/* Matching Points Section */}
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
               </div>
-              <div className="flex flex-wrap gap-1.5 flex-1">
-                {result.matchingSkills?.length > 0 ? (
-                  result.matchingSkills.map((s: string, i: number) => (
-                    <Badge
-                      key={i}
-                      className="bg-white border border-emerald-100 text-emerald-700 shadow-sm text-[10px] px-2 py-0"
-                    >
-                      {s}
-                    </Badge>
-                  ))
-                ) : (
-                  <span className="text-[10px] text-gray-400">
-                    Tidak ada skill spesifik.
-                  </span>
-                )}
+              <h4 className="text-sm font-semibold text-gray-900">
+                Kelebihan Kamu
+              </h4>
+            </div>
+            <div className="space-y-2 pl-8">
+              {result.matchingSkills?.length > 0 ? (
+                result.matchingSkills.map((point: string, i: number) => (
+                  <div
+                    key={i}
+                    className="flex items-start gap-2 text-sm text-gray-700 bg-emerald-50/50 px-3 py-2 rounded-lg border border-emerald-100"
+                  >
+                    <span className="text-emerald-500 mt-0.5">•</span>
+                    <span>{point}</span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-xs text-gray-400 italic">
+                  Tidak ada poin kelebihan spesifik yang terdeteksi.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Missing Points / Improvement Section */}
+          {result.missingSkills?.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center">
+                  <AlertCircle className="w-4 h-4 text-orange-600" />
+                </div>
+                <h4 className="text-sm font-semibold text-gray-900">
+                  Perlu Ditingkatkan
+                </h4>
+              </div>
+              <div className="space-y-2 pl-8">
+                {result.missingSkills.map((point: string, i: number) => (
+                  <div
+                    key={i}
+                    className="flex items-start gap-2 text-sm text-gray-700 bg-orange-50/50 px-3 py-2 rounded-lg border border-orange-100"
+                  >
+                    <span className="text-orange-500 mt-0.5">•</span>
+                    <span>{point}</span>
+                  </div>
+                ))}
               </div>
             </div>
-
-            {result.missingSkills?.length > 0 && (
-              <div className="flex items-start gap-2">
-                <div className="mt-0.5">
-                  <XCircle className="w-3.5 h-3.5 text-red-500" />
-                </div>
-                <div className="flex flex-wrap gap-1.5 flex-1">
-                  {result.missingSkills.map((s: string, i: number) => (
-                    <Badge
-                      key={i}
-                      variant="outline"
-                      className="text-red-600 bg-red-50/50 border-red-100 text-[10px] px-2 py-0"
-                    >
-                      {s}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </div>
     );
@@ -234,7 +269,7 @@ export default function JobAIAnalysis({ jobId }: JobAIAnalysisProps) {
 
   // --- VIEW 4: INITIAL STATE (READY) ---
   return (
-    <StarBorder as="div" className="w-full" color="#6366f1" speed="5s">
+    <StarBorder as="div" className="w-full" color="magenta" speed="5s">
       <div className="p-5 flex flex-col items-center text-center bg-slate-950/95 backdrop-blur-xl w-full h-full rounded-[20px] relative overflow-hidden">
         {/* Background Glow Effect */}
         <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] bg-[radial-gradient(circle,rgba(99,102,241,0.15)_0%,transparent_50%)] pointer-events-none" />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import Navbar from "@/components/layout/Navbar";
@@ -20,24 +20,29 @@ import {
   Trash2,
   Save,
   Loader2,
-  ChevronLeft,
-  LayoutDashboard,
+  Settings,
   Bookmark,
   History,
-  Settings,
-  CheckCircle2,
-  AlertCircle,
+  Receipt,
+  UploadCloud,
+  FileText,
 } from "lucide-react";
 import type { ProfileFormData } from "@/types/index";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 
-// --- SUB-COMPONENT: EDIT PROFILE FORM (Kode lama kamu dipindah kesini) ---
-const ProfileEditSection = () => {
+// --- COMPONENT: FORM EDIT PROFILE + UPLOAD CV ---
+const ProfileEditSection = ({
+  onProfileUpdate,
+}: {
+  onProfileUpdate: (name: string, role: string) => void;
+}) => {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadingCV, setIsUploadingCV] = useState(false); // State untuk loading upload
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [message, setMessage] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
     register,
@@ -123,11 +128,97 @@ const ProfileEditSection = () => {
     loadProfile();
   }, [reset]);
 
+  // --- HANDLER UPLOAD CV ---
+  const handleCVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validasi file type
+    if (file.type !== "application/pdf") {
+      setMessage("Hanya file PDF yang didukung.");
+      return;
+    }
+
+    // Validasi file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setMessage("Ukuran file maksimal 5MB.");
+      return;
+    }
+
+    try {
+      setIsUploadingCV(true);
+      setMessage("");
+
+      // Panggil Service Parsing
+      const parsedData = await profileService.parseResume(file);
+
+      // Auto-fill Form dengan data hasil parsing
+      if (parsedData.fullName) setValue("fullName", parsedData.fullName);
+      if (parsedData.email) setValue("email", parsedData.email);
+      if (parsedData.phone) setValue("phone", parsedData.phone);
+      if (parsedData.title) setValue("title", parsedData.title);
+      if (parsedData.summary) setValue("summary", parsedData.summary);
+      if (parsedData.location) setValue("location", parsedData.location);
+
+      // Handle experience - ensure proper format
+      if (parsedData.experience && parsedData.experience.length > 0) {
+        const formattedExperience = parsedData.experience.map((exp: any) => ({
+          company: exp.company || "",
+          position: exp.position || "",
+          startDate: exp.startDate || "",
+          endDate: exp.endDate || null,
+          isCurrent: exp.isCurrent || false,
+          description: Array.isArray(exp.description)
+            ? exp.description
+            : exp.description
+              ? [exp.description]
+              : [],
+        }));
+        setValue("experience", formattedExperience);
+      }
+
+      // Handle education - ensure proper format
+      if (parsedData.education && parsedData.education.length > 0) {
+        const formattedEducation = parsedData.education.map((edu: any) => ({
+          institution: edu.institution || "",
+          degree: edu.degree || "",
+          fieldOfStudy: edu.fieldOfStudy || "",
+          grade: edu.grade || "",
+          startDate: edu.startDate || "",
+          endDate: edu.endDate || "",
+          description: edu.description || "",
+        }));
+        setValue("education", formattedEducation);
+      }
+
+      // Handle skills - mapping string array ke object array { name: string }
+      if (parsedData.skills && parsedData.skills.length > 0) {
+        const formattedSkills = parsedData.skills.map(
+          (s: string | { name: string }) =>
+            typeof s === "string" ? { name: s } : s,
+        );
+        setValue("skills", formattedSkills);
+      }
+
+      setMessage("Data berhasil diisi otomatis dari CV!");
+    } catch (error: any) {
+      console.error(error);
+      setMessage(
+        error.message || "Gagal memproses CV. Pastikan format PDF valid.",
+      );
+    } finally {
+      setIsUploadingCV(false);
+      // Reset input file agar bisa upload file yang sama lagi jika perlu
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   const onSubmit = async (data: ProfileFormData) => {
     try {
       setIsSubmitting(true);
       setMessage("");
       await profileService.createOrUpdateProfile(data);
+      onProfileUpdate(data.fullName || "User", data.title || "Job Seeker"); // Update sidebar realtime
       setMessage("Profil berhasil disimpan!");
     } catch (error: any) {
       setMessage(error.message || "Gagal menyimpan profil.");
@@ -162,15 +253,49 @@ const ProfileEditSection = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* --- FITUR BARU: AUTO FILL DARI CV --- */}
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-6 text-white shadow-lg flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+            <FileText className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h3 className="font-bold text-lg">Isi Profil Otomatis</h3>
+            <p className="text-blue-100 text-sm">
+              Upload CV (PDF) kamu dan biarkan AI mengisi formulir di bawah ini.
+            </p>
+          </div>
+        </div>
+        <div>
+          <input
+            type="file"
+            accept=".pdf"
+            className="hidden"
+            ref={fileInputRef}
+            onChange={handleCVUpload}
+          />
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploadingCV}
+            className="bg-white text-blue-700 hover:bg-blue-50 font-semibold border-0 shadow-md"
+          >
+            {isUploadingCV ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Memproses...
+              </>
+            ) : (
+              <>
+                <UploadCloud className="w-4 h-4 mr-2" /> Upload CV
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+
       {message && (
         <div
-          className={`px-4 py-3 rounded-xl flex items-center gap-2 text-sm font-medium ${message.includes("berhasil") ? "bg-emerald-50 border border-emerald-200 text-emerald-800" : "bg-red-50 border border-red-200 text-red-800"}`}
+          className={`px-4 py-3 rounded-xl text-sm font-medium ${message.includes("berhasil") ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-red-50 text-red-800 border border-red-200"}`}
         >
-          {message.includes("berhasil") ? (
-            <CheckCircle2 className="w-4 h-4" />
-          ) : (
-            <AlertCircle className="w-4 h-4" />
-          )}
           {message}
         </div>
       )}
@@ -395,7 +520,7 @@ const ProfileEditSection = () => {
           </div>
         </Card>
 
-        {/* 4. EDUCATION (Simplified for brevity in response) */}
+        {/* 4. EDUCATION */}
         <Card className="border border-gray-200 shadow-sm bg-white rounded-2xl overflow-hidden">
           <div className="p-6 md:p-8 space-y-6">
             <div className="flex justify-between items-center border-b border-gray-100 pb-4">
@@ -521,35 +646,7 @@ const ProfileEditSection = () => {
           </div>
         </Card>
 
-        {/* 6. AI SUMMARY GENERATOR */}
-        <Card className="border border-indigo-100 shadow-lg bg-gradient-to-br from-white to-indigo-50/30 rounded-2xl overflow-hidden">
-          <div className="p-6 md:p-8 space-y-6">
-            <div className="flex justify-between items-center border-b border-indigo-100 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center">
-                  <Sparkles className="h-5 w-5" />
-                </div>
-                <h2 className="text-lg font-bold text-gray-900">AI Summary</h2>
-              </div>
-              <Button
-                type="button"
-                onClick={handleGenerateAISummary}
-                disabled={isGeneratingAI}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white"
-              >
-                {isGeneratingAI ? "Generating..." : "Generate AI"}
-              </Button>
-            </div>
-            <Textarea
-              rows={6}
-              placeholder="Hasil AI..."
-              {...register("aiSummary")}
-              className="border-0 bg-white/50"
-            />
-          </div>
-        </Card>
-
-        {/* BUTTON SAVE (FLOATING OR BOTTOM) */}
+        {/* BUTTON SAVE */}
         <div className="flex justify-end pt-4 pb-20">
           <Button
             type="submit"
@@ -565,7 +662,21 @@ const ProfileEditSection = () => {
   );
 };
 
-// --- SUB-COMPONENT: PLACEHOLDERS (Untuk Tab Lain) ---
+// --- PLACEHOLDER UNTUK HISTORY PEMBELIAN ---
+const PaymentHistorySection = () => (
+  <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-gray-200">
+    <div className="h-16 w-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+      <Receipt className="h-8 w-8 text-gray-400" />
+    </div>
+    <h3 className="text-lg font-bold text-gray-900">Belum ada Transaksi</h3>
+    <p className="text-gray-500 mt-1 mb-6 text-sm text-center max-w-md">
+      Riwayat pembelian token atau langganan kamu akan muncul di sini.
+    </p>
+    <Button variant="outline">Beli Token</Button>
+  </div>
+);
+
+// --- PLACEHOLDERS LAINNYA ---
 const HistorySection = () => (
   <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-gray-200">
     <div className="h-16 w-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
@@ -574,11 +685,8 @@ const HistorySection = () => (
     <h3 className="text-lg font-bold text-gray-900">
       Belum ada Riwayat Interview
     </h3>
-    <p className="text-gray-500 mt-1 mb-6 text-sm text-center max-w-md">
-      Fitur AI Interview akan mencatat semua simulasi interview kamu di sini.
-    </p>
     <Link href="/interview">
-      <Button>Mulai Interview Sekarang</Button>
+      <Button>Mulai Interview</Button>
     </Link>
   </div>
 );
@@ -591,23 +699,33 @@ const SavedJobsSection = () => (
     <h3 className="text-lg font-bold text-gray-900">
       Belum ada Pekerjaan Disimpan
     </h3>
-    <p className="text-gray-500 mt-1 mb-6 text-sm text-center max-w-md">
-      Simpan lowongan yang menarik agar mudah ditemukan kembali nanti.
-    </p>
     <Link href="/jobs">
       <Button variant="outline">Cari Lowongan</Button>
     </Link>
   </div>
 );
 
-// --- MAIN PAGE COMPONENT (DENGAN SIDEBAR) ---
+// --- MAIN PAGE COMPONENT ---
 export default function ProfilePage() {
-  const [activeTab, setActiveTab] = useState("profile"); // State untuk Tab Aktif
+  const [activeTab, setActiveTab] = useState("profile");
 
+  // STATE BARU: Untuk menyimpan info user yang login
+  const [userInfo, setUserInfo] = useState({
+    name: "User",
+    role: "Job Seeker",
+  });
+
+  // Update info sidebar saat form profile disave atau diload
+  const updateSidebarInfo = (name: string, role: string) => {
+    setUserInfo({ name: name || "User", role: role || "Job Seeker" });
+  };
+
+  // UPDATE MENU ITEMS (Tambah History Pembelian)
   const menuItems = [
     { id: "profile", label: "Informasi Profil", icon: User },
     { id: "saved", label: "Pekerjaan Disimpan", icon: Bookmark, badge: 0 },
     { id: "history", label: "Riwayat AI Interview", icon: History },
+    { id: "payment", label: "History Pembelian", icon: Receipt }, // NEW
     { id: "settings", label: "Pengaturan Akun", icon: Settings },
   ];
 
@@ -617,19 +735,22 @@ export default function ProfilePage() {
 
       <div className="container mx-auto px-4 pt-24 pb-16 max-w-7xl">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* === SIDEBAR (3 Columns) === */}
+          {/* === SIDEBAR === */}
           <div className="lg:col-span-3">
             <div className="bg-white border border-gray-200 rounded-2xl shadow-sm sticky top-24 overflow-hidden">
-              {/* User Mini Profile (Header Sidebar) */}
-              <div className="p-6 bg-gradient-to-b from-blue-50/50 to-white border-b border-gray-100 text-center">
-                <div className="w-20 h-20 bg-blue-100 rounded-full mx-auto mb-3 flex items-center justify-center text-2xl font-bold text-blue-600 border-4 border-white shadow-sm">
-                  ME
+              {/* Header Sidebar (Dynamic User Name) */}
+              <div className="p-6 bg-gradient-to-b from-gray-50 to-white border-b border-gray-100 text-center">
+                <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-full mx-auto mb-3 flex items-center justify-center text-2xl font-bold border-4 border-white shadow-sm uppercase">
+                  {userInfo.name.substring(0, 2)}
                 </div>
-                <h3 className="font-bold text-gray-900">My Profile</h3>
-                <p className="text-xs text-gray-500">Job Seeker</p>
+                <h3 className="font-bold text-gray-900 truncate px-2">
+                  {userInfo.name}
+                </h3>
+                <p className="text-xs text-gray-500 truncate px-2">
+                  {userInfo.role}
+                </p>
               </div>
 
-              {/* Navigation Menu */}
               <div className="p-3 space-y-1">
                 {menuItems.map((item) => (
                   <button
@@ -637,7 +758,7 @@ export default function ProfilePage() {
                     onClick={() => setActiveTab(item.id)}
                     className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                       activeTab === item.id
-                        ? "bg-blue-600 text-white shadow-md shadow-blue-200"
+                        ? "bg-black text-white shadow-md" // UPDATE: Warna aktif jadi Hitam
                         : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                     }`}
                   >
@@ -647,8 +768,7 @@ export default function ProfilePage() {
                       />
                       {item.label}
                     </div>
-                    {/* Optional Badge logic */}
-                    {item.badge !== undefined && (
+                    {item.badge !== undefined && item.badge > 0 && (
                       <span
                         className={`text-[10px] px-2 py-0.5 rounded-full ${activeTab === item.id ? "bg-white/20 text-white" : "bg-gray-100 text-gray-600"}`}
                       >
@@ -661,7 +781,7 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* === CONTENT AREA (9 Columns) === */}
+          {/* === CONTENT === */}
           <div className="lg:col-span-9">
             <div className="mb-6">
               <h1 className="text-2xl font-bold text-gray-900">
@@ -672,10 +792,12 @@ export default function ProfilePage() {
               </p>
             </div>
 
-            {/* Render Content Based on Active Tab */}
-            {activeTab === "profile" && <ProfileEditSection />}
+            {activeTab === "profile" && (
+              <ProfileEditSection onProfileUpdate={updateSidebarInfo} />
+            )}
             {activeTab === "saved" && <SavedJobsSection />}
             {activeTab === "history" && <HistorySection />}
+            {activeTab === "payment" && <PaymentHistorySection />}
             {activeTab === "settings" && (
               <div className="bg-white rounded-2xl p-10 text-center border border-gray-200">
                 <Settings className="w-10 h-10 text-gray-300 mx-auto mb-3" />

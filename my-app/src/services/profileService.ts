@@ -1,5 +1,11 @@
 const API_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-import type { Profile, ProfileFormData, Experience, Education } from "@/types";
+import type {
+  Profile,
+  ProfileFormData,
+  Experience,
+  Education,
+  ParsedResumeData,
+} from "@/types";
 
 const getAuthHeaders = () => {
   const token =
@@ -12,16 +18,16 @@ const getAuthHeaders = () => {
 
 // Helper to create a structured error
 const createError = async (response: Response, defaultMessage: string) => {
-    const error: any = new Error(defaultMessage);
-    try {
-        const body = await response.json();
-        error.message = body.message || defaultMessage;
-    } catch (e) {
-        // Ignore if body is not json
-    }
-    error.status = response.status;
-    return error;
-}
+  const error: any = new Error(defaultMessage);
+  try {
+    const body = await response.json();
+    error.message = body.message || defaultMessage;
+  } catch (e) {
+    // Ignore if body is not json
+  }
+  error.status = response.status;
+  return error;
+};
 
 export const profileService = {
   async getProfile(): Promise<{ message: string; profile: Profile }> {
@@ -32,6 +38,14 @@ export const profileService = {
 
     if (!response.ok) {
       throw await createError(response, "Failed to get profile");
+    }
+
+    // Cek apakah response adalah JSON
+    const contentType = response.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      const error: any = new Error("Server returned invalid response format");
+      error.status = response.status;
+      throw error;
     }
 
     return await response.json();
@@ -100,13 +114,56 @@ export const profileService = {
 
     return await response.json();
   },
+
+  parseResume: async (file: File): Promise<ParsedResumeData> => {
+    const formData = new FormData();
+    formData.append("resume", file);
+
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
+    const response = await fetch(`${API_URL}/resume/parse`, {
+      method: "POST",
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        // Jangan set Content-Type secara manual saat kirim FormData, browser yang atur boundary-nya
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await createError(response, "Gagal memproses CV.");
+      throw error;
+    }
+
+    const data = await response.json();
+    // Backend returns: { success, message, data: { rawTextPreview, parsedProfile: { fullName, email, profile: {...} } } }
+    const parsedData = data.data?.parsedProfile;
+
+    if (!parsedData) {
+      throw new Error("Data CV tidak valid");
+    }
+
+    // Flatten the nested structure to match form fields
+    return {
+      fullName: parsedData.fullName || "",
+      email: parsedData.email || "",
+      phone: parsedData.profile?.phone || "",
+      title: parsedData.profile?.title || "",
+      summary: parsedData.profile?.summary || "",
+      location: parsedData.profile?.location || "",
+      skills: parsedData.profile?.skills || [],
+      education: parsedData.profile?.education || [],
+      experience: parsedData.profile?.experience || [],
+    };
+  },
 };
 
 export const aiService = {
   async enhanceSummary(data: {
     fullName?: string;
     summary?: string;
-    skills?: {name: string}[];
+    skills?: { name: string }[];
     experience?: Experience[];
     education?: Education[];
   }): Promise<{ message: string; aiSummary: string }> {
@@ -141,7 +198,7 @@ export const aiService = {
     );
 
     if (!response.ok) {
-        throw await createError(response, "Failed to optimize description");
+      throw await createError(response, "Failed to optimize description");
     }
 
     return await response.json();
@@ -160,7 +217,7 @@ export const aiService = {
     });
 
     if (!response.ok) {
-        throw await createError(response, "Failed to suggest skills");
+      throw await createError(response, "Failed to suggest skills");
     }
 
     return await response.json();
