@@ -149,7 +149,7 @@ export default function InterviewEvaluationPage() {
             </p>
             <Button
               onClick={() => router.push("/interview")}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-black hover:bg-blue-700 text-white"
             >
               Mulai Interview Baru
             </Button>
@@ -241,7 +241,7 @@ export default function InterviewEvaluationPage() {
               <Button
                 size="lg"
                 onClick={() => router.push("/interview/setup")}
-                className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20 h-12 px-8"
+                className="bg-black hover:bg-blue-700 text-white shadow-lg  h-12 px-8"
               >
                 Mulai Interview Baru
               </Button>

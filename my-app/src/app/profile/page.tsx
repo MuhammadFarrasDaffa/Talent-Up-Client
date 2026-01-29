@@ -35,6 +35,8 @@ import {
   MessageSquare,
   Calendar,
   Clock,
+  AlertCircle,
+  BrainCircuit,
 } from "lucide-react";
 import type { ProfileFormData, Experience, Education } from "@/types/index";
 import { Badge } from "@/components/ui/badge";
@@ -720,7 +722,6 @@ const PaymentHistorySection = () => {
         setLoading(false);
         return;
       }
-
       const response = await paymentService.getPaymentHistory(token);
       setPayments(response.data || []);
     } catch (error: any) {
@@ -731,31 +732,43 @@ const PaymentHistorySection = () => {
   };
 
   const getStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { className: string; label: string }> = {
+    const statusConfig: Record<
+      string,
+      { className: string; label: string; icon?: React.ReactNode }
+    > = {
       success: {
-        className: "bg-green-100 text-green-800 border-green-300",
-        label: "Success",
+        className: "bg-emerald-50 text-emerald-700 border-emerald-200",
+        label: "Berhasil",
+        icon: <CheckCircle className="w-3.5 h-3.5 mr-1" />,
       },
       pending: {
-        className: "bg-yellow-100 text-yellow-800 border-yellow-300",
-        label: "Pending",
+        className: "bg-amber-50 text-amber-700 border-amber-200",
+        label: "Menunggu",
+        icon: <Clock className="w-3.5 h-3.5 mr-1" />,
       },
       failed: {
-        className: "bg-red-100 text-red-800 border-red-300",
-        label: "Failed",
+        className: "bg-red-50 text-red-700 border-red-200",
+        label: "Gagal",
+        icon: <AlertCircle className="w-3.5 h-3.5 mr-1" />,
       },
       expired: {
-        className: "bg-gray-100 text-gray-800 border-gray-300",
-        label: "Expired",
+        className: "bg-gray-100 text-gray-600 border-gray-200",
+        label: "Kadaluarsa",
       },
     };
 
     const config = statusConfig[status] || {
-      className: "bg-gray-100 text-gray-800 border-gray-300",
+      className: "bg-gray-100 text-gray-600 border-gray-200",
       label: status,
     };
+
     return (
-      <Badge className={`${config.className} border`}>{config.label}</Badge>
+      <Badge
+        className={`${config.className} border px-2.5 py-0.5 text-xs font-medium flex items-center w-fit shadow-sm`}
+      >
+        {config.icon}
+        {config.label}
+      </Badge>
     );
   };
 
@@ -763,6 +776,7 @@ const PaymentHistorySection = () => {
     return new Intl.NumberFormat("id-ID", {
       style: "currency",
       currency: "IDR",
+      minimumFractionDigits: 0,
     }).format(price);
   };
 
@@ -781,18 +795,13 @@ const PaymentHistorySection = () => {
       toast.error("Token pembayaran tidak tersedia");
       return;
     }
-
     try {
       setProcessingPayment(payment._id);
-
-      // Open Midtrans Snap popup with existing snapToken
       if (window.snap) {
         window.snap.pay(payment.snapToken, {
           onSuccess: async function (result: any) {
             toast.success("Pembayaran berhasil!");
-            // Reload payment history to get updated status
             await loadPaymentHistory();
-            // Trigger storage event to update token balance
             window.dispatchEvent(new Event("storage"));
           },
           onPending: function (result: any) {
@@ -820,140 +829,141 @@ const PaymentHistorySection = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center py-20 bg-white rounded-2xl border border-gray-200">
-        <div className="text-center">
-          <div className="loading loading-spinner loading-lg mb-4"></div>
-          <p className="text-gray-600">Memuat riwayat transaksi...</p>
-        </div>
+      <div className="flex flex-col justify-center items-center py-32 bg-white rounded-2xl border border-gray-200 shadow-sm">
+        <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
+        <p className="text-gray-500 font-medium">Memuat riwayat transaksi...</p>
       </div>
     );
   }
 
   if (payments.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-gray-200">
-        <div className="h-16 w-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
-          <Receipt className="h-8 w-8 text-gray-400" />
+      <div className="flex flex-col items-center justify-center py-24 bg-white rounded-2xl border border-gray-200 shadow-sm text-center">
+        <div className="h-20 w-20 bg-gray-50 rounded-full flex items-center justify-center mb-5 border border-gray-100">
+          <Receipt className="h-10 w-10 text-gray-300" />
         </div>
-        <h3 className="text-lg font-bold text-gray-900">Belum ada Transaksi</h3>
-        <p className="text-gray-500 mt-1 mb-6 text-sm text-center max-w-md">
-          Kamu bisa melakukan transaksi pembelian token untuk menggunakan
-          layanan AI kami.
+        <h3 className="text-xl font-bold text-gray-900 mb-2">
+          Belum ada Transaksi
+        </h3>
+        <p className="text-gray-500 mb-8 max-w-sm leading-relaxed">
+          Riwayat pembelian token atau paket langganan Anda akan muncul di sini.
         </p>
-        <Button variant="outline" onClick={() => router.push("/payment")}>
-          Beli Token
+        <Button
+          onClick={() => router.push("/payment")}
+          className="bg-black text-white hover:bg-gray-800 rounded-xl px-8 shadow-lg"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Beli Token Sekarang
         </Button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center mb-6">
+    <div className="space-y-6">
+      {/* Header Section */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">
-            Riwayat Pembelian Token
-          </h2>
-          <p className="text-gray-600 text-sm mt-1">
-            Total {payments.length} transaksi
+          <h2 className="text-xl font-bold text-gray-900">Riwayat Pembelian</h2>
+          <p className="text-gray-500 text-sm mt-1">
+            Kelola dan pantau semua transaksi token Anda.
           </p>
         </div>
-        <Button variant="outline" onClick={() => router.push("/payment")}>
+        <Button
+          onClick={() => router.push("/payment")}
+          className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-md shadow-blue-100"
+        >
           <Plus className="w-4 h-4 mr-2" />
-          Beli Token
+          Top Up Token
         </Button>
       </div>
 
-      {payments.map((payment) => (
-        <Card
-          key={payment._id}
-          className="p-6 border border-gray-200 bg-white rounded-xl hover:shadow-md transition-shadow"
-        >
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
-                  <Receipt className="w-5 h-5 text-blue-600" />
+      {/* Payment List */}
+      <div className="grid gap-4">
+        {payments.map((payment) => (
+          <div
+            key={payment._id}
+            className="group relative bg-white border border-gray-200 rounded-2xl p-6 transition-all hover:shadow-lg hover:border-blue-200"
+          >
+            {/* Top Row: Icon, Title, Status */}
+            <div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-6">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-blue-50 border border-blue-100 rounded-2xl flex items-center justify-center shrink-0">
+                  <Receipt className="w-6 h-6 text-blue-600" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-gray-900">
-                    {payment.packageType.charAt(0).toUpperCase() +
-                      payment.packageType.slice(1)}{" "}
-                    Package
+                  <h3 className="font-bold text-gray-900 text-lg capitalize">
+                    {payment.packageType} Package
                   </h3>
-                  <p className="text-xs text-gray-500">
-                    Order ID: {payment.orderId}
+                  <div className="flex items-center gap-2 text-xs text-gray-500 font-mono mt-1 bg-gray-50 px-2 py-0.5 rounded w-fit">
+                    <span>#{payment.orderId}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="self-start md:self-center">
+                {getStatusBadge(payment.status)}
+              </div>
+            </div>
+
+            {/* Middle Row: Stats Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-y-4 gap-x-8 py-5 border-t border-gray-50">
+              <div>
+                <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-1">
+                  Total Token
+                </p>
+                <div className="flex items-center gap-1.5">
+                  <p className="font-bold text-gray-900">
+                    {payment.tokenAmount}{" "}
+                    <span className="text-xs font-normal text-gray-500">
+                      Tokens
+                    </span>
                   </p>
                 </div>
               </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Tokens</p>
-                  <p className="font-semibold text-gray-900">
-                    {payment.tokenAmount} Tokens
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Price</p>
-                  <p className="font-semibold text-gray-900">
-                    {formatPrice(payment.price)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Date</p>
-                  <p className="font-semibold text-gray-900 text-sm">
-                    {formatDate(payment.createdAt)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Status</p>
-                  {getStatusBadge(payment.status)}
+              <div>
+                <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-1">
+                  Total Bayar
+                </p>
+                <p className="font-bold text-gray-900">
+                  {formatPrice(payment.price)}
+                </p>
+              </div>
+              <div className="col-span-2 md:col-span-2">
+                <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-1">
+                  Waktu Transaksi
+                </p>
+                <div className="flex items-center gap-2 text-sm text-gray-700 font-medium">
+                  <Calendar className="w-4 h-4 text-gray-400" />
+                  {formatDate(payment.createdAt)}
                 </div>
               </div>
             </div>
 
-            {/* Action button untuk pending payment */}
-            {payment.status === "pending" && payment.snapToken && (
-              <div className="flex items-center">
-                <Button
-                  onClick={() => handleContinuePayment(payment)}
-                  disabled={processingPayment === payment._id}
-                  className="bg-yellow-600 hover:bg-yellow-700 text-white"
-                >
-                  {processingPayment === payment._id ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Loading...
-                    </>
-                  ) : (
-                    <>
-                      <Receipt className="w-4 h-4 mr-2" />
-                      Bayar Sekarang
-                    </>
-                  )}
-                </Button>
-              </div>
-            )}
-
-            {/* Info untuk expired payment */}
-            {payment.status === "expired" && (
-              <div className="flex flex-col items-end gap-2">
-                <p className="text-sm text-gray-500 italic">
-                  Transaksi telah hangus
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => router.push("/payment")}
-                >
-                  Buat Pesanan Baru
-                </Button>
+            {/* Bottom Row: Actions (Only if needed) */}
+            {(payment.status === "pending" || payment.status === "expired") && (
+              <div className="flex justify-end pt-4 border-t border-gray-100">
+                {payment.status === "pending" && payment.snapToken && (
+                  <Button
+                    variant={"outline"}
+                    onClick={() => handleContinuePayment(payment)}
+                    disabled={processingPayment === payment._id}
+                    className="border-black hover:bg-black hover:text-white text-black rounded-lg h-10 px-6  transition-all"
+                  >
+                    {processingPayment === payment._id ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />{" "}
+                        Memproses...
+                      </>
+                    ) : (
+                      "Bayar Sekarang"
+                    )}
+                  </Button>
+                )}
               </div>
             )}
           </div>
-        </Card>
-      ))}
+        ))}
+      </div>
     </div>
   );
 };
@@ -991,6 +1001,8 @@ interface InterviewHistoryItem {
   };
 }
 
+// ... imports tetap sama
+
 const HistorySection = () => {
   const [interviews, setInterviews] = useState<InterviewHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1007,15 +1019,9 @@ const HistorySection = () => {
     try {
       setLoading(true);
       const response = await fetch("http://localhost:3000/interviews/history", {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch interview history");
-      }
-
+      if (!response.ok) throw new Error("Failed to fetch interview history");
       const data = await response.json();
       setInterviews(data.interviews);
     } catch (error) {
@@ -1025,59 +1031,50 @@ const HistorySection = () => {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat("id-ID", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(date);
-  };
-
-  const getLevelColor = (level: string) => {
-    switch (level.toLowerCase()) {
-      case "junior":
-        return "bg-green-100 text-green-800 border-green-300";
-      case "senior":
-        return "bg-purple-100 text-purple-800 border-purple-300";
-      case "middle":
-        return "bg-blue-100 text-blue-800 border-blue-300";
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-300";
-    }
-  };
-
-  const getTierColor = (tier: string) => {
-    return tier.toLowerCase() === "premium"
-      ? "bg-amber-100 text-amber-800 border-amber-300"
-      : "bg-slate-100 text-slate-800 border-slate-300";
-  };
-
-  const getGradeColor = (grade: string) => {
-    if (grade.startsWith("A")) return "text-green-600";
-    if (grade.startsWith("B")) return "text-blue-600";
-    if (grade.startsWith("C")) return "text-yellow-600";
-    return "text-red-600";
-  };
-
-  const handleViewEvaluation = (interviewId: string) => {
-    router.push(`/interview/evaluate?id=${interviewId}`);
-  };
-
-  const toggleExpand = (interviewId: string) => {
+  const toggleExpand = (id: string) => {
     setExpandedInterviews((prev) => {
       const newSet = new Set(prev);
-      if (newSet.has(interviewId)) {
-        newSet.delete(interviewId);
-      } else {
-        newSet.add(interviewId);
-      }
+      newSet.has(id) ? newSet.delete(id) : newSet.add(id);
       return newSet;
     });
   };
 
+  // ... helper functions (formatDate, getLevelColor, dll) tetap sama ...
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString("id-ID", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+  const getLevelColor = (level: string) => {
+    switch (level.toLowerCase()) {
+      case "junior":
+        return "bg-emerald-50 text-emerald-700 border-emerald-200";
+      case "middle":
+        return "bg-blue-50 text-blue-700 border-blue-200";
+      case "senior":
+        return "bg-purple-50 text-purple-700 border-purple-200";
+      default:
+        return "bg-gray-50 text-gray-600 border-gray-200";
+    }
+  };
+  const getTierColor = (tier: string) => {
+    return tier.toLowerCase() === "premium"
+      ? "bg-amber-50 text-amber-700 border-amber-200"
+      : "bg-slate-50 text-slate-600 border-slate-200";
+  };
+  const getGradeBadgeStyle = (grade: string) => {
+    if (grade.startsWith("A"))
+      return "bg-emerald-100 text-emerald-700 border-emerald-200";
+    if (grade.startsWith("B"))
+      return "bg-blue-100 text-blue-700 border-blue-200";
+    if (grade.startsWith("C"))
+      return "bg-yellow-100 text-yellow-700 border-yellow-200";
+    return "bg-red-100 text-red-700 border-red-200";
+  };
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -1086,209 +1083,229 @@ const HistorySection = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center py-20 bg-white rounded-2xl border border-gray-200">
-        <div className="text-center">
-          <div className="loading loading-spinner loading-lg mb-4"></div>
-          <p className="text-gray-600">Memuat riwayat interview...</p>
-        </div>
+      <div className="flex flex-col justify-center items-center py-24 bg-white rounded-2xl border border-gray-200 shadow-sm">
+        <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
+        <p className="text-gray-500 font-medium">Memuat riwayat interview...</p>
       </div>
     );
   }
 
   if (interviews.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-gray-200">
-        <div className="h-16 w-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
-          <History className="h-8 w-8 text-gray-400" />
+      <div className="flex flex-col items-center justify-center py-24 bg-white rounded-2xl border border-gray-200 shadow-sm text-center">
+        <div className="h-20 w-20 bg-gray-50 rounded-full flex items-center justify-center mb-5 border border-gray-100">
+          <History className="h-10 w-10 text-gray-300" />
         </div>
-        <h3 className="text-lg font-bold text-gray-900">
-          Belum ada Riwayat Interview
+        <h3 className="text-xl font-bold text-gray-900 mb-2">
+          Belum ada Riwayat
         </h3>
-        <p className="text-gray-500 mt-1 mb-6 text-sm text-center max-w-md">
-          Kamu bisa melakukan Interview AI untuk melatih kemampuan wawancaramu
-          dengan klik tombol di bawah.
+        <p className="text-gray-500 mb-8 max-w-sm leading-relaxed">
+          Lakukan simulasi interview pertamamu dan dapatkan feedback instan dari
+          AI.
         </p>
         <Link href="/interview">
-          <Button>Mulai Interview</Button>
+          <Button className="bg-black text-white hover:bg-gray-800 rounded-xl px-8 shadow-lg">
+            <Plus className="w-4 h-4 mr-2" /> Mulai Interview
+          </Button>
         </Link>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center mb-6">
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">
-            Riwayat AI Interview
+          <h2 className="text-xl font-bold text-gray-900 tracking-tight">
+            Riwayat Aktivitas
           </h2>
-          <p className="text-gray-600 text-sm mt-1">
-            Total {interviews.length} interview
+          <p className="text-gray-500 text-sm mt-1">
+            Pantau perkembangan skor interview kamu.
           </p>
         </div>
-        <Link href="/interview">
-          <Button>
-            <Plus className="w-4 h-4 mr-2" />
-            Mulai Interview
+        <Link href="/interview/setup">
+          <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-md shadow-blue-100 h-10 px-5">
+            <Plus className="w-4 h-4 mr-2" /> Interview Baru
           </Button>
         </Link>
       </div>
 
-      {interviews.map((interview) => (
-        <Card
-          key={interview._id}
-          className="p-6 border border-gray-200 bg-white rounded-xl hover:shadow-md transition-shadow"
-        >
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            {/* Left Section - Interview Info */}
-            <div className="flex-1">
-              <div className="flex items-start gap-3 mb-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Trophy className="w-6 h-6 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-gray-900 mb-1">
-                    {interview.category}
-                  </h3>
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    <Badge
-                      className={`${getLevelColor(interview.level)} border`}
-                    >
-                      {interview.level}
-                    </Badge>
-                    <Badge className={`${getTierColor(interview.tier)} border`}>
-                      {interview.tier}
-                    </Badge>
-                    {interview.evaluated && (
-                      <Badge className="bg-green-50 text-green-700 border border-green-300">
-                        <CheckCircle className="w-3 h-3 mr-1" />
-                        Evaluated
-                      </Badge>
-                    )}
+      <div className="grid gap-4">
+        {interviews.map((interview) => (
+          <div
+            key={interview._id}
+            className="group bg-white border border-gray-200 rounded-2xl overflow-hidden hover:shadow-lg hover:border-blue-200 transition-all duration-300"
+          >
+            {/* --- MAIN CARD CONTENT --- */}
+            <div className="p-5 sm:p-6">
+              <div className="flex flex-col md:flex-row gap-5 items-start md:items-center justify-between">
+                {/* LEFT: Info Utama */}
+                <div className="flex items-start gap-4 w-full md:w-auto">
+                  <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 flex items-center justify-center shrink-0 text-blue-600 shadow-sm">
+                    <BrainCircuit className="w-6 h-6" />
                   </div>
-                  <div className="flex items-center gap-4 text-sm text-gray-600">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="w-4 h-4" />
-                      {formatDate(interview.completedAt)}
-                    </span>
-                  </div>
-                </div>
-              </div>
 
-              {/* Evaluation Score */}
-              {interview.evaluated && interview.evaluation && (
-                <div className="flex items-center gap-4 mt-4 pt-4 border-t border-gray-200">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600">Score:</span>
-                    <span className="text-2xl font-bold text-blue-600">
-                      {interview.evaluation.overallScore}
-                    </span>
-                    <span className="text-sm text-gray-500">/100</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600">Grade:</span>
-                    <span
-                      className={`text-2xl font-bold ${getGradeColor(interview.evaluation.overallGrade)}`}
-                    >
-                      {interview.evaluation.overallGrade}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Right Section - Actions */}
-            <div className="flex flex-col gap-2 md:items-end">
-              <Button
-                onClick={() => handleViewEvaluation(interview._id)}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                <Eye className="w-4 h-4 mr-2" />
-                {interview.evaluated ? "Lihat Evaluasi" : "Evaluate Interview"}
-              </Button>
-
-              {/* Toggle Details Button */}
-              <Button
-                onClick={() => toggleExpand(interview._id)}
-                variant="outline"
-                className="border-gray-300"
-              >
-                {expandedInterviews.has(interview._id) ? (
-                  <>
-                    <ChevronUp className="w-4 h-4 mr-2" />
-                    Sembunyikan Detail
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="w-4 h-4 mr-2" />
-                    Lihat Detail
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-
-          {/* Expanded Section - Questions & Answers */}
-          {expandedInterviews.has(interview._id) && (
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <MessageSquare className="w-5 h-5" />
-                Questions & Answers ({interview.answers?.length || 0})
-              </h4>
-
-              <div className="space-y-4">
-                {interview.answers?.map((answer, index) => (
-                  <div key={index} className="bg-gray-50 rounded-lg p-4">
-                    {/* Question */}
-                    <div className="mb-3">
-                      <div className="flex items-start gap-2 mb-2">
-                        <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-xs">
-                          Q{index + 1}
-                        </Badge>
-                        {answer.isFollowUp && (
-                          <Badge className="bg-purple-100 text-purple-800 border-purple-300 text-xs">
-                            Follow-up
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-gray-900 font-medium">
-                        {answer.question}
-                      </p>
-                    </div>
-
-                    {/* Answer */}
-                    <div className="ml-4 pl-4 border-l-2 border-blue-200">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge className="bg-green-100 text-green-800 border-green-300 text-xs">
-                          A{index + 1}
-                        </Badge>
-                        {answer.duration > 0 && (
-                          <span className="text-xs text-gray-500 flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {formatDuration(answer.duration)}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-gray-700 text-sm">
-                        {answer.transcription}
-                      </p>
-
-                      {/* Acknowledgment */}
-                      {answer.acknowledgment && (
-                        <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-100">
-                          <p className="text-xs text-blue-800 italic">
-                            💬 {answer.acknowledgment}
-                          </p>
-                        </div>
+                  <div className="space-y-1.5 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-bold text-gray-900 text-base md:text-lg group-hover:text-blue-600 transition-colors">
+                        {interview.category}
+                      </h3>
+                      {interview.evaluated && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 text-green-700 text-[10px] font-medium border border-green-100">
+                          <CheckCircle className="w-3 h-3" /> Selesai
+                        </span>
                       )}
                     </div>
+
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
+                      <div className="flex items-center gap-1.5">
+                        <span className="capitalize font-medium px-2 py-0.5 bg-gray-100 rounded text-gray-600">
+                          {interview.level}
+                        </span>
+                        <span
+                          className={`capitalize font-medium px-2 py-0.5 rounded ${interview.tier === "premium" ? "bg-amber-50 text-amber-700" : "bg-gray-50 text-gray-600"}`}
+                        >
+                          {interview.tier} Plan
+                        </span>
+                      </div>
+                      <span className="text-gray-300">|</span>
+                      <div className="flex items-center gap-1">
+                        <Calendar className="w-3.5 h-3.5" />
+                        {formatDate(interview.completedAt)}
+                      </div>
+                    </div>
                   </div>
-                ))}
+                </div>
+
+                {/* RIGHT: Score & Actions */}
+                <div className="flex flex-row md:flex-col items-center md:items-end justify-between w-full md:w-auto gap-4 pl-0 md:pl-6 md:border-l border-gray-100/50">
+                  {interview.evaluated && interview.evaluation ? (
+                    <div className="flex items-center gap-3">
+                      <div className="text-right hidden md:block">
+                        <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
+                          Skor
+                        </p>
+                        <p className="text-sm font-bold text-gray-900">
+                          {interview.evaluation.overallScore}
+                          <span className="text-gray-400 font-normal">
+                            /100
+                          </span>
+                        </p>
+                      </div>
+                      <div
+                        className={`h-10 w-10 flex items-center justify-center rounded-lg border text-lg font-bold shadow-sm ${getGradeBadgeStyle(interview.evaluation.overallGrade)}`}
+                      >
+                        {interview.evaluation.overallGrade}
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-gray-400 italic py-2">
+                      Belum dievaluasi
+                    </span>
+                  )}
+
+                  <div className="flex items-center gap-2 w-full md:w-auto">
+                    {interview.evaluated && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          router.push(`/interview/evaluate?id=${interview._id}`)
+                        }
+                        className="flex-1 md:flex-none h-9 text-xs border-gray-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-all"
+                      >
+                        Detail Evaluasi
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => toggleExpand(interview._id)}
+                      className={`h-9 w-9 text-gray-400 hover:text-gray-900 transition-transform duration-300 ${expandedInterviews.has(interview._id) ? "rotate-180 bg-gray-100" : ""}`}
+                    >
+                      <ChevronDown className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
-          )}
-        </Card>
-      ))}
+
+            {/* --- EXPANDED DETAILS (SCROLLABLE ACCORDION) --- */}
+            <div
+              className={`overflow-hidden transition-[max-height] duration-500 ease-in-out ${
+                // UPDATE 1: Batasi tinggi wrapper animasi agar tidak infinite
+                expandedInterviews.has(interview._id)
+                  ? "max-h-[600px] border-t border-gray-100"
+                  : "max-h-0"
+              }`}
+            >
+              <div className="p-6 bg-gray-50/50">
+                <div className="flex items-center gap-2 mb-4">
+                  <MessageSquare className="w-4 h-4 text-blue-500" />
+                  <h4 className="text-sm font-bold text-gray-900">
+                    Transkrip Sesi
+                  </h4>
+                </div>
+
+                {/* UPDATE 2: Tambahkan Container Scroll disini */}
+                {/* max-h-[350px] akan membatasi area scroll */}
+                <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
+                  {interview.answers?.map((answer, index) => (
+                    <div
+                      key={index}
+                      className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm relative"
+                    >
+                      <div className="absolute left-6 top-8 bottom-0 w-px bg-gray-100 -z-10"></div>
+
+                      <div className="flex gap-4">
+                        <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold mt-0.5">
+                          Q{index + 1}
+                        </div>
+                        <div className="space-y-2 flex-1">
+                          <p className="text-gray-900 text-sm font-medium leading-relaxed">
+                            {answer.question}
+                          </p>
+
+                          <div className="flex gap-3 mt-3">
+                            <div className="flex-shrink-0 mt-1">
+                              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
+                            </div>
+                            <div className="space-y-1.5 w-full">
+                              <p className="text-sm text-gray-600 leading-relaxed italic bg-gray-50 p-3 rounded-lg rounded-tl-none border border-gray-100">
+                                "
+                                {answer.transcription || (
+                                  <span className="text-gray-400">
+                                    Tidak ada suara terdeteksi
+                                  </span>
+                                )}
+                                "
+                              </p>
+
+                              <div className="flex items-center justify-between text-[10px] text-gray-400 pl-1">
+                                {answer.duration > 0 && (
+                                  <span className="flex items-center gap-1">
+                                    <Clock className="w-3 h-3" />{" "}
+                                    {formatDuration(answer.duration)}
+                                  </span>
+                                )}
+                                {answer.acknowledgment && (
+                                  <span className="text-blue-400 font-medium">
+                                    AI Feedback Received
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
@@ -1403,15 +1420,6 @@ export default function ProfilePage() {
 
           {/* === CONTENT === */}
           <div className="lg:col-span-9">
-            <div className="mb-6">
-              <h1 className="text-2xl font-bold text-gray-900">
-                {menuItems.find((i) => i.id === activeTab)?.label}
-              </h1>
-              <p className="text-gray-500 text-sm">
-                Kelola informasi dan aktivitasmu di sini.
-              </p>
-            </div>
-
             {activeTab === "profile" && (
               <ProfileEditSection onProfileUpdate={updateSidebarInfo} />
             )}

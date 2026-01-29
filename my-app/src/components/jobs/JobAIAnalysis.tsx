@@ -11,12 +11,15 @@ import {
   ArrowRight,
   UserCog,
   AlertCircle,
+  Coins,
+  BrainCircuit,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { aiService } from "@/services/aiService";
 import { profileService } from "@/services/profileService";
+import { paymentService } from "@/services/paymentService";
 import StarBorder from "@/components/ui/StarBorder";
 
 interface JobAIAnalysisProps {
@@ -32,15 +35,45 @@ export default function JobAIAnalysis({ jobId }: JobAIAnalysisProps) {
   // State baru untuk handle profile belum lengkap
   const [isProfileIncomplete, setIsProfileIncomplete] = useState(false);
 
+  // State baru untuk token
+  const [tokenBalance, setTokenBalance] = useState<number>(0);
+  const [isInsufficientToken, setIsInsufficientToken] = useState(false);
+  const [loadingToken, setLoadingToken] = useState(false);
+
+  const TOKEN_COST = 1; // Biaya per analisis
+
   useEffect(() => {
     // Cek login saat mount
-    setIsLoggedIn(!!localStorage.getItem("user"));
+    const isUserLoggedIn = !!localStorage.getItem("user");
+    setIsLoggedIn(isUserLoggedIn);
+
+    // Fetch token balance jika sudah login
+    if (isUserLoggedIn) {
+      fetchTokenBalance();
+    }
   }, []);
+
+  const fetchTokenBalance = async () => {
+    setLoadingToken(true);
+    try {
+      const token = localStorage.getItem("token");
+      if (token) {
+        const response = await paymentService.getTokenBalance(token);
+        setTokenBalance(response.data.tokenBalance);
+        setIsInsufficientToken(response.data.tokenBalance < TOKEN_COST);
+      }
+    } catch (error) {
+      console.error("Failed to load token balance:", error);
+    } finally {
+      setLoadingToken(false);
+    }
+  };
 
   const handleAnalyze = async () => {
     setLoading(true);
     setError("");
     setIsProfileIncomplete(false);
+    setIsInsufficientToken(false);
 
     try {
       const token = localStorage.getItem("token");
@@ -81,8 +114,21 @@ export default function JobAIAnalysis({ jobId }: JobAIAnalysisProps) {
 
       const aiResult = await aiService.analyzeMatch(jobId, userProfilePayload);
       setResult(aiResult);
+
+      // Update token balance setelah berhasil
+      if (aiResult.remainingToken !== undefined) {
+        setTokenBalance(aiResult.remainingToken);
+      }
     } catch (err: any) {
       console.error(err);
+
+      // Handle insufficient token error
+      if (err.code === "INSUFFICIENT_TOKEN") {
+        setIsInsufficientToken(true);
+        setTokenBalance(err.currentBalance || 0);
+        return;
+      }
+
       // Handle berbagai jenis error
       if (err.message?.includes("Please login") || err.status === 401) {
         setIsLoggedIn(false);
@@ -121,7 +167,48 @@ export default function JobAIAnalysis({ jobId }: JobAIAnalysisProps) {
     );
   }
 
-  // --- VIEW 2: PROFILE BELUM LENGKAP (Warning State) ---
+  // --- VIEW 2: TOKEN TIDAK CUKUP ---
+  if (isInsufficientToken) {
+    return (
+      <Card className="border border-red-200 bg-red-50/50 shadow-sm overflow-hidden">
+        <CardContent className="p-5 text-center">
+          <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <Coins className="w-6 h-6 text-red-600" />
+          </div>
+          <h3 className="font-bold text-gray-900 text-sm">Token Tidak Cukup</h3>
+          <p className="text-xs text-gray-600 mt-2 mb-2 leading-relaxed">
+            Kamu membutuhkan <strong>{TOKEN_COST} token</strong> untuk
+            menggunakan fitur AI Match Analyzer.
+          </p>
+          <div className="flex items-center justify-center gap-1 mb-4">
+            <Badge variant="outline" className="text-xs">
+              <Coins className="w-3 h-3 mr-1" />
+              Saldo: {tokenBalance} token
+            </Badge>
+          </div>
+
+          <div className="space-y-2">
+            <Link href="/payment">
+              <Button className="w-full h-9 text-xs bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-200">
+                <Coins className="w-3.5 h-3.5 mr-1.5" />
+                Beli Token
+              </Button>
+            </Link>
+            <Button
+              onClick={() => setIsInsufficientToken(false)}
+              variant="ghost"
+              size="sm"
+              className="w-full h-8 text-[10px] text-gray-400 hover:text-gray-600"
+            >
+              Batal
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // --- VIEW 3: PROFILE BELUM LENGKAP (Warning State) ---
   if (isProfileIncomplete) {
     return (
       <Card className="border border-orange-200 bg-orange-50/50 shadow-sm overflow-hidden">
@@ -267,44 +354,69 @@ export default function JobAIAnalysis({ jobId }: JobAIAnalysisProps) {
     );
   }
 
-  // --- VIEW 4: INITIAL STATE (READY) ---
+  // --- VIEW 5: INITIAL STATE (READY) ---
   return (
-    <StarBorder as="div" className="w-full" color="magenta" speed="5s">
-      <div className="p-5 flex flex-col items-center text-center bg-slate-950/95 backdrop-blur-xl w-full h-full rounded-[20px] relative overflow-hidden">
-        {/* Background Glow Effect */}
-        <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] bg-[radial-gradient(circle,rgba(99,102,241,0.15)_0%,transparent_50%)] pointer-events-none" />
+    <StarBorder
+      as="div"
+      className="w-full relative group"
+      color="#6366f1"
+      speed="4s"
+    >
+      {/* Main Container - Compact & Clean */}
+      <div className="relative p-5 bg-slate-950/95 backdrop-blur-md w-full rounded-2xl overflow-hidden border border-slate-800/80 shadow-xl">
+        {/* --- DECORATION --- */}
+        <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none" />
+        <div className="absolute -left-6 -top-6 text-indigo-500/5 pointer-events-none rotate-12">
+          <Sparkles className="w-32 h-32" />
+        </div>
 
-        <div className="relative z-10 w-full">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Sparkles className="w-5 h-5 text-indigo-400 animate-pulse" />
-            <h3 className="text-white font-bold text-sm tracking-tight">
+        {/* --- BADGE TOKEN (TOP RIGHT) --- */}
+        <div className="absolute top-4 right-4">
+          <Badge
+            variant="outline"
+            className="bg-slate-900/80 border-slate-700 text-slate-300 text-[10px] px-2 py-0.5 gap-1.5 shadow-sm backdrop-blur-sm"
+          >
+            <Coins className="w-3 h-3 text-yellow-500" />
+            <span>1 Token</span>
+          </Badge>
+        </div>
+
+        {/* --- CONTENT --- */}
+        <div className="relative z-10 w-full mt-1">
+          {/* Header */}
+          <div className="mb-4 pr-16">
+            {" "}
+            {/* pr-16 agar teks tidak nabrak badge */}
+            <h3 className="text-white font-bold text-sm flex items-center gap-2 mb-1">
+              <Sparkles className="w-4 h-4 text-indigo-400 fill-indigo-400/30 animate-pulse" />
               AI Match Analyzer
             </h3>
+            <p className="text-slate-400 text-[11px] leading-snug">
+              Cek kecocokan profilmu dengan lowongan ini secara instan.
+            </p>
           </div>
 
-          <p className="text-slate-400 text-[11px] mb-5 leading-snug px-2">
-            Analisis kecocokan Skill & Pengalamanmu dengan lowongan ini secara
-            instan.
-          </p>
-
+          {/* Error Message */}
           {error && (
-            <div className="mb-3 text-[10px] text-red-300 bg-red-900/30 px-2 py-1.5 rounded border border-red-500/20 flex items-center justify-center gap-1.5">
-              <AlertCircle className="w-3 h-3" /> {error}
+            <div className="mb-3 text-[10px] text-red-300 bg-red-950/50 px-2 py-1.5 rounded border border-red-900/50 flex items-center gap-2">
+              <AlertCircle className="w-3 h-3 shrink-0" />
+              <span className="line-clamp-2">{error}</span>
             </div>
           )}
 
+          {/* Action Button */}
           <Button
             onClick={handleAnalyze}
-            disabled={loading}
-            size="sm"
-            className="w-full bg-white text-slate-950 hover:bg-indigo-50 hover:scale-[1.02] active:scale-[0.98] font-bold text-xs h-9 rounded-lg transition-all shadow-[0_0_15px_rgba(255,255,255,0.1)]"
+            disabled={loading || loadingToken}
+            className="w-full bg-white text-slate-950 hover:bg-indigo-50 hover:scale-[1.01] active:scale-[0.99] font-bold text-xs h-9 rounded-lg transition-all shadow-sm shadow-indigo-500/20 border-0"
           >
             {loading ? (
-              <span className="flex items-center gap-2">
-                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Menganalisis...
+              <span className="flex items-center justify-center gap-2">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />{" "}
+                Menganalisis...
               </span>
             ) : (
-              <span className="flex items-center gap-2">
+              <span className="flex items-center justify-center gap-2">
                 Analisis Sekarang <ArrowRight className="w-3.5 h-3.5" />
               </span>
             )}

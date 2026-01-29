@@ -17,7 +17,6 @@ import {
   ArrowLeft,
   FileText,
   Loader2,
-  RefreshCw,
   User,
   Briefcase,
   GraduationCap,
@@ -30,6 +29,9 @@ import {
   Wand2,
   CheckCircle2,
   Database,
+  Code,
+  Heart,
+  Laptop,
 } from "lucide-react";
 import type {
   ProfileFormData,
@@ -78,11 +80,31 @@ export default function CVCreatePage() {
     append: appendEducation,
     remove: removeEducation,
   } = useFieldArray({ control, name: "education" });
-  const {
-    fields: skillFields,
-    append: appendSkill,
-    remove: removeSkill,
-  } = useFieldArray({ control, name: "skills" });
+
+  // Watch skills to filter by category
+  const allSkills = watch("skills") || [];
+
+  // Helper functions to manage skills by category
+  const getSkillsByCategory = (
+    category: "hardSkill" | "softSkill" | "tool",
+  ) => {
+    return allSkills
+      .map((skill, index) => ({ ...skill, originalIndex: index }))
+      .filter((skill) => skill.category === category);
+  };
+
+  const addSkill = (category: "hardSkill" | "softSkill" | "tool") => {
+    const currentSkills = watch("skills") || [];
+    setValue("skills", [...currentSkills, { name: "", category }]);
+  };
+
+  const removeSkillByIndex = (originalIndex: number) => {
+    const currentSkills = watch("skills") || [];
+    setValue(
+      "skills",
+      currentSkills.filter((_, index) => index !== originalIndex),
+    );
+  };
 
   // Helper function to convert date to YYYY-MM format
   const formatDateToMonth = (
@@ -120,6 +142,38 @@ export default function CVCreatePage() {
   }, []);
 
   const populateFormWithProfile = (profile: Profile) => {
+    // Helper to categorize skills if not already categorized
+    const categorizeSkill = (
+      skill: string | { name: string; category?: string },
+    ) => {
+      const skillName = typeof skill === "string" ? skill : skill.name;
+      const existingCategory =
+        typeof skill === "object" ? skill.category : undefined;
+
+      if (existingCategory) {
+        return {
+          name: skillName,
+          category: existingCategory as "hardSkill" | "softSkill" | "tool",
+        };
+      }
+
+      // Common tools patterns
+      const toolPatterns =
+        /\b(figma|adobe|photoshop|illustrator|xd|sketch|miro|trello|jira|asana|notion|slack|git|github|gitlab|vscode|vs code|postman|docker|kubernetes|aws|azure|gcp|excel|word|powerpoint|canva|invision|zeplin|abstract|principle|framer|webflow|wordpress|shopify|firebase|mongodb|mysql|postgresql|redis|jenkins|terraform|ansible|linux|windows|macos)\b/i;
+
+      // Common soft skills patterns
+      const softSkillPatterns =
+        /\b(communication|problem.?solving|critical.?thinking|creative.?thinking|leadership|teamwork|collaboration|collaborative|adaptable|adaptive|flexible|time.?management|organization|organized|interpersonal|emotional.?intelligence|conflict.?resolution|decision.?making|negotiation|presentation|public.?speaking|mentoring|coaching|empathy|patience|motivation|initiative|self.?motivated|detail.?oriented|analytical|fast.?learner|quick.?learner|multitasking|stress.?management|work.?ethic|positive.?attitude|open.?minded|receptive|proactive|reliable|dependable|accountable|trustworthy|honest|integrity|respectful|professional|punctual|diligent|perseverance|resilience|curious|creativity|innovation|strategic.?thinking|planning|prioritization)\b/i;
+
+      if (toolPatterns.test(skillName)) {
+        return { name: skillName, category: "tool" as const };
+      } else if (softSkillPatterns.test(skillName)) {
+        return { name: skillName, category: "softSkill" as const };
+      } else {
+        return { name: skillName, category: "hardSkill" as const };
+      }
+    };
+
     const formattedProfile = {
       ...profile,
       experience: profile.experience?.map((exp: Experience) => ({
@@ -132,9 +186,7 @@ export default function CVCreatePage() {
         startDate: formatDateToMonth(edu.startDate),
         endDate: formatDateToMonth(edu.endDate),
       })),
-      skills: profile.skills?.map((s) =>
-        typeof s === "string" ? { name: s } : s,
-      ),
+      skills: profile.skills?.map((s) => categorizeSkill(s)),
     };
     reset(formattedProfile as ProfileFormData);
   };
@@ -277,21 +329,6 @@ export default function CVCreatePage() {
                     <Eye className="w-4 h-4" />
                   )}
                   {showPreview ? "Sembunyikan Preview" : "Tampilkan Preview"}
-                </Button>
-                <Button
-                  onClick={handleDownloadPDF}
-                  disabled={isDownloading || !htmlContent}
-                  className="bg-black hover:bg-blue-700 text-white gap-2"
-                >
-                  {isDownloading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" /> Mengunduh...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="w-4 h-4" /> Download PDF
-                    </>
-                  )}
                 </Button>
               </div>
             </div>
@@ -703,54 +740,188 @@ export default function CVCreatePage() {
                   </div>
                 </Card>
 
-                {/* 5. SKILLS */}
+                {/* 5. SKILLS - 3 Sections */}
                 <Card className="border border-gray-200 shadow-sm bg-white rounded-xl overflow-hidden">
                   <div className="p-5 space-y-5">
-                    <div className="flex justify-between items-center border-b border-gray-100 pb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center">
-                          <Wrench className="h-4 w-4" />
-                        </div>
-                        <h2 className="text-base font-bold text-gray-900">
-                          Skills
-                        </h2>
+                    <div className="flex items-center gap-3 border-b border-gray-100 pb-3">
+                      <div className="h-9 w-9 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center">
+                        <Wrench className="h-4 w-4" />
                       </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => appendSkill({ name: "" })}
-                      >
-                        <Plus className="h-4 w-4 mr-1" /> Tambah
-                      </Button>
+                      <h2 className="text-base font-bold text-gray-900">
+                        Skills
+                      </h2>
                     </div>
-                    {skillFields.length === 0 && (
-                      <p className="text-sm text-gray-500 text-center py-4">
-                        Belum ada skill. Klik "Tambah" untuk menambahkan.
-                      </p>
-                    )}
-                    <div className="flex flex-wrap gap-2">
-                      {skillFields.map((field, index) => (
-                        <div
-                          key={field.id}
-                          className="flex items-center gap-1 bg-gray-100 rounded-full pl-3 pr-1 py-1"
-                        >
-                          <Input
-                            placeholder="Skill..."
-                            {...register(`skills.${index}.name` as const)}
-                            className="border-0 bg-transparent h-7 w-28 text-sm p-0 focus-visible:ring-0"
-                          />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 rounded-full hover:bg-red-100"
-                            onClick={() => removeSkill(index)}
-                          >
-                            <Trash2 className="h-3 w-3 text-red-400" />
-                          </Button>
+
+                    {/* Hard Skills */}
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <Code className="h-4 w-4 text-blue-600" />
+                          <h3 className="text-sm font-semibold text-gray-800">
+                            Hard Skills
+                          </h3>
                         </div>
-                      ))}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => addSkill("hardSkill")}
+                          className="h-7 text-xs"
+                        >
+                          <Plus className="h-3 w-3 mr-1" /> Tambah
+                        </Button>
+                      </div>
+                      {getSkillsByCategory("hardSkill").length === 0 ? (
+                        <p className="text-xs text-gray-400 italic">
+                          Contoh: React, Python, Data Analysis, UI/UX Design
+                        </p>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {getSkillsByCategory("hardSkill").map((skill) => (
+                            <div
+                              key={skill.originalIndex}
+                              className="inline-flex items-center gap-1 bg-blue-50 border border-blue-200 rounded-full pl-3 pr-1 py-1"
+                            >
+                              <input
+                                placeholder="Hard skill..."
+                                {...register(
+                                  `skills.${skill.originalIndex}.name` as const,
+                                )}
+                                className="border-0 bg-transparent h-6 min-w-[60px] max-w-[180px] text-sm outline-none text-blue-800 placeholder:text-blue-400"
+                                style={{
+                                  width: `${Math.max(60, (watch(`skills.${skill.originalIndex}.name`) || "").length * 8 + 20)}px`,
+                                }}
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 rounded-full hover:bg-red-100"
+                                onClick={() =>
+                                  removeSkillByIndex(skill.originalIndex)
+                                }
+                              >
+                                <Trash2 className="h-3 w-3 text-red-400" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Soft Skills */}
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <Heart className="h-4 w-4 text-pink-600" />
+                          <h3 className="text-sm font-semibold text-gray-800">
+                            Soft Skills
+                          </h3>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => addSkill("softSkill")}
+                          className="h-7 text-xs"
+                        >
+                          <Plus className="h-3 w-3 mr-1" /> Tambah
+                        </Button>
+                      </div>
+                      {getSkillsByCategory("softSkill").length === 0 ? (
+                        <p className="text-xs text-gray-400 italic">
+                          Contoh: Communication, Problem Solving, Leadership,
+                          Teamwork
+                        </p>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {getSkillsByCategory("softSkill").map((skill) => (
+                            <div
+                              key={skill.originalIndex}
+                              className="inline-flex items-center gap-1 bg-pink-50 border border-pink-200 rounded-full pl-3 pr-1 py-1"
+                            >
+                              <input
+                                placeholder="Soft skill..."
+                                {...register(
+                                  `skills.${skill.originalIndex}.name` as const,
+                                )}
+                                className="border-0 bg-transparent h-6 min-w-[60px] max-w-[180px] text-sm outline-none text-pink-800 placeholder:text-pink-400"
+                                style={{
+                                  width: `${Math.max(60, (watch(`skills.${skill.originalIndex}.name`) || "").length * 8 + 20)}px`,
+                                }}
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 rounded-full hover:bg-red-100"
+                                onClick={() =>
+                                  removeSkillByIndex(skill.originalIndex)
+                                }
+                              >
+                                <Trash2 className="h-3 w-3 text-red-400" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Tools */}
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <Laptop className="h-4 w-4 text-emerald-600" />
+                          <h3 className="text-sm font-semibold text-gray-800">
+                            Tools
+                          </h3>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => addSkill("tool")}
+                          className="h-7 text-xs"
+                        >
+                          <Plus className="h-3 w-3 mr-1" /> Tambah
+                        </Button>
+                      </div>
+                      {getSkillsByCategory("tool").length === 0 ? (
+                        <p className="text-xs text-gray-400 italic">
+                          Contoh: Figma, Git, VS Code, Jira, Trello
+                        </p>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {getSkillsByCategory("tool").map((skill) => (
+                            <div
+                              key={skill.originalIndex}
+                              className="inline-flex items-center gap-1 bg-emerald-50 border border-emerald-200 rounded-full pl-3 pr-1 py-1"
+                            >
+                              <input
+                                placeholder="Tool..."
+                                {...register(
+                                  `skills.${skill.originalIndex}.name` as const,
+                                )}
+                                className="border-0 bg-transparent h-6 min-w-[60px] max-w-[180px] text-sm outline-none text-emerald-800 placeholder:text-emerald-400"
+                                style={{
+                                  width: `${Math.max(60, (watch(`skills.${skill.originalIndex}.name`) || "").length * 8 + 20)}px`,
+                                }}
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 rounded-full hover:bg-red-100"
+                                onClick={() =>
+                                  removeSkillByIndex(skill.originalIndex)
+                                }
+                              >
+                                <Trash2 className="h-3 w-3 text-red-400" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </Card>
@@ -760,7 +931,7 @@ export default function CVCreatePage() {
                   <Button
                     type="submit"
                     disabled={isSavingProfile || isLoading}
-                    className="flex-1 bg-blue-700 hover:bg-blue-800 text-white h-12 font-semibold shadow-md"
+                    className="flex-1 bg-black hover:bg-gray-800 text-white h-12 font-semibold shadow-md"
                   >
                     {isSavingProfile || isLoading ? (
                       <>
@@ -775,16 +946,22 @@ export default function CVCreatePage() {
                     )}
                   </Button>
                   <Button
+                    variant={"outline"}
                     type="button"
-                    variant="outline"
-                    onClick={loadPreview}
-                    disabled={isLoading}
-                    className="gap-2"
+                    onClick={handleDownloadPDF}
+                    disabled={isDownloading || !htmlContent}
+                    className=" hover:bg-gray-100 text-black border border-gray-300 h-12 font-semibold gap-2 px-6"
                   >
-                    <RefreshCw
-                      className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`}
-                    />
-                    Refresh
+                    {isDownloading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />{" "}
+                        Mengunduh...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-4 h-4" /> Download PDF
+                      </>
+                    )}
                   </Button>
                 </div>
               </form>

@@ -18,8 +18,13 @@ const config: Config = {
           "star-movement-bottom linear infinite alternate",
         "star-movement-top": "star-movement-top linear infinite alternate",
         "gradient-x": "gradient-x 3s ease infinite",
+        blink: "blink 1s step-end infinite",
       },
       keyframes: {
+        blink: {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0" },
+        },
         "star-movement-bottom": {
           "0%": { transform: "translate(0%, 0%)", opacity: "1" },
           "100%": { transform: "translate(-100%, 0%)", opacity: "0" },

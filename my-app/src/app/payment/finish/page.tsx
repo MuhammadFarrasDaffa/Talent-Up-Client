@@ -32,7 +32,7 @@ export default function PaymentFinishPage() {
           transactionStatus === "capture" ||
           transactionStatus === "settlement"
         ) {
-          router.replace("/payment/success");
+          router.replace("/profile");
         } else if (transactionStatus === "pending") {
           toast.info("Waiting for payment...");
           router.replace("/payment/pending");
@@ -54,7 +54,7 @@ export default function PaymentFinishPage() {
           transactionStatus === "capture" ||
           transactionStatus === "settlement"
         ) {
-          router.replace("/payment/success");
+          // router.replace("/payment/success");
         } else {
           router.replace("/payment/error");
         }
